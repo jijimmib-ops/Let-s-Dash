@@ -19,7 +19,14 @@ namespace LetsDash.Core
         SineWave = 1,
         Spiral = 2,
         CurvedArc = 3,
-        RoseCurve = 4
+        RoseCurve = 4,
+        LogarithmicSpiral = 5,
+        DampedWave = 6,
+        ExpandingHelix = 7,
+        ZigZagWave = 8,
+        HeartBurst = 9,
+        StarburstPolygon = 10,
+        BoomerangHook = 11
     }
 
     public enum BulletVisualType
