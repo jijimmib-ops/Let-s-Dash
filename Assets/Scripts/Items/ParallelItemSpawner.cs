@@ -79,18 +79,22 @@ namespace LetsDash.Items
 
             spawnOnLeftNext = !spawnOnLeftNext;
 
-            Vector2 pos = new Vector2(Random.Range(min.x, max.x), Random.Range(min.y, max.y));
+            Vector2 pos = new Vector2(
+                ModuloLcgRandom.NextRange(min.x, max.x),
+                ModuloLcgRandom.NextRange(min.y, max.y)
+            );
             GameObject crateObj = Instantiate(cratePrefab, pos, Quaternion.identity, transform);
 
-            WeaponUpgradeFlags randomFlag = AvailableUpgrades[Random.Range(0, AvailableUpgrades.Length)];
-            Sprite artSprite = FindSpriteForUpgrade(randomFlag);
+            int upgradeIdx = ModuloLcgRandom.NextMod(AvailableUpgrades.Length);
+            WeaponUpgradeFlags selectedFlag = AvailableUpgrades[upgradeIdx];
+            Sprite artSprite = FindSpriteForUpgrade(selectedFlag);
 
             var crate = crateObj.GetComponent<PowerUpCrate>();
             if (crate == null)
             {
                 crate = crateObj.AddComponent<PowerUpCrate>();
             }
-            crate.Initialize(randomFlag, artSprite);
+            crate.Initialize(selectedFlag, artSprite);
         }
 
         private Sprite FindSpriteForUpgrade(WeaponUpgradeFlags flag)

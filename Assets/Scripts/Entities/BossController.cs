@@ -269,8 +269,9 @@ namespace LetsDash.Entities
             List<PathPatternType> sortedKeys = ReadAvailableSortedKeys();
             if (sortedKeys.Count == 0) return;
 
+            ModuloLcgRandom.EnsureInitialized();
             int cachedRunCount = PlayerPrefs.GetInt(CacheRunCountKey, 0);
-            int cachedLastSeed = PlayerPrefs.GetInt(CacheLastSeedKey, currentSeed);
+            int cachedLastSeed = PlayerPrefs.GetInt(CacheLastSeedKey, ModuloLcgRandom.CurrentSeed);
             string cachedOpeningsRaw = PlayerPrefs.GetString(CacheRecentOpeningsKey, string.Empty);
 
             var recentOpenings = new List<string>();
@@ -284,17 +285,17 @@ namespace LetsDash.Entities
             }
 
             runNumber = cachedRunCount + 1;
-            int timeEntropy = (int)(DateTime.UtcNow.Ticks & 0x7FFFFFFF);
-            int candidateSeed = Mathf.Abs((cachedLastSeed * 1103515 + 12345 + runNumber * 97 + timeEntropy) % 999983);
-            if (candidateSeed == 0) candidateSeed = 7;
+            // Pure mathematical LCG step with zero clock/system random dependency
+            ModuloLcgRandom.SetSeed(cachedLastSeed);
+            int candidateSeed = ModuloLcgRandom.FeedInput(runNumber);
 
             int pivotCount = Mathf.Max(1, pivotPoints.Count);
             string chosenSignature = string.Empty;
 
-            // Search deterministic modulo permutations until opening avoids recent cached playthroughs
+            // Search deterministic LCG modulo permutations until opening avoids recent cached playthroughs
             for (int attempt = 0; attempt < 24; attempt++)
             {
-                int trySeed = candidateSeed + attempt * 131;
+                int trySeed = attempt == 0 ? candidateSeed : ModuloLcgRandom.FeedInput(attempt + 1);
                 BuildDeckWithModuloSeed(sortedKeys, trySeed);
                 chosenSignature = BuildOpeningSignature(pivotCount);
 
@@ -306,7 +307,8 @@ namespace LetsDash.Entities
             }
 
             currentSeed = candidateSeed;
-            stageCursor = 0;
+            ModuloLcgRandom.SetSeed(currentSeed);
+            stageCursor = ModuloLcgRandom.NextMod(sortedKeys.Count);
             AssignNonDuplicatePivotPatterns();
 
             recentOpenings.Add(chosenSignature);
@@ -316,7 +318,7 @@ namespace LetsDash.Entities
             }
 
             PlayerPrefs.SetInt(CacheRunCountKey, runNumber);
-            PlayerPrefs.SetInt(CacheLastSeedKey, currentSeed);
+            PlayerPrefs.SetInt(CacheLastSeedKey, ModuloLcgRandom.CurrentSeed);
             PlayerPrefs.SetString(CacheRecentOpeningsKey, string.Join(",", recentOpenings));
             PlayerPrefs.Save();
         }
@@ -448,28 +450,39 @@ namespace LetsDash.Entities
             int deckCount = runPatternDeck.Count;
             if (deckCount == 0) return;
 
-            int pivotCount = Mathf.Max(1, pivotPoints.Count);
-            // Choose smallest step >= pivotCount that is coprime to deckCount so consecutive stages share 0 patterns
-            int step = 1;
-            for (int candidate = pivotCount; candidate < deckCount + pivotCount; candidate++)
+            // Pure mathematical LCG Result = Seed_new % 12 (influenced by W/A/S/D keystrokes)
+            int lcgIndex = ModuloLcgRandom.NextMod(deckCount);
+            if (lcgIndex == stageCursor)
             {
-                if (GreatestCommonDivisor(candidate, deckCount) == 1)
+                int pivotCount = Mathf.Max(1, pivotPoints.Count);
+                int fallbackStep = 1;
+                for (int candidate = pivotCount; candidate < deckCount + pivotCount; candidate++)
                 {
-                    step = candidate;
-                    break;
+                    if (GreatestCommonDivisor(candidate, deckCount) == 1)
+                    {
+                        fallbackStep = candidate;
+                        break;
+                    }
                 }
+                lcgIndex = (stageCursor + fallbackStep) % deckCount;
             }
 
-            int nextCursor = stageCursor + step;
-            if (nextCursor >= deckCount)
-            {
-                // Completed a full sweep of the 12-formula deck: advance seed & re-permute
-                currentSeed += Mathf.FloorToInt(elapsedFightTime) + 17;
-                BuildDeckWithModuloSeed(ReadAvailableSortedKeys(), currentSeed);
-            }
-            stageCursor = ((nextCursor % deckCount) + deckCount) % deckCount;
+            currentSeed = ModuloLcgRandom.CurrentSeed;
+            stageCursor = lcgIndex;
+
+            PlayerPrefs.SetInt(CacheLastSeedKey, currentSeed);
+            ModuloLcgRandom.SaveSeed();
 
             AssignNonDuplicatePivotPatterns();
+        }
+
+        private void OnDisable()
+        {
+            if (ModuloLcgRandom.CurrentSeed > 0)
+            {
+                PlayerPrefs.SetInt(CacheLastSeedKey, ModuloLcgRandom.CurrentSeed);
+                ModuloLcgRandom.SaveSeed();
+            }
         }
 
         public void ExecuteFirePattern(BossStageConfig fallbackStage)

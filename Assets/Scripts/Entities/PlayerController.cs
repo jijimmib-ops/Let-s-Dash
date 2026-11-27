@@ -103,6 +103,11 @@ namespace LetsDash.Entities
 
             if (playerID == 0)
             {
+                if (Input.GetKeyDown(KeyCode.W)) ModuloLcgRandom.FeedInput(1);
+                if (Input.GetKeyDown(KeyCode.A)) ModuloLcgRandom.FeedInput(2);
+                if (Input.GetKeyDown(KeyCode.S)) ModuloLcgRandom.FeedInput(3);
+                if (Input.GetKeyDown(KeyCode.D)) ModuloLcgRandom.FeedInput(4);
+
                 if (Input.GetKey(KeyCode.A)) x -= 1f;
                 if (Input.GetKey(KeyCode.D)) x += 1f;
                 if (Input.GetKey(KeyCode.W)) y += 1f;
@@ -110,6 +115,11 @@ namespace LetsDash.Entities
             }
             else
             {
+                if (Input.GetKeyDown(KeyCode.UpArrow)) ModuloLcgRandom.FeedInput(5);
+                if (Input.GetKeyDown(KeyCode.LeftArrow)) ModuloLcgRandom.FeedInput(6);
+                if (Input.GetKeyDown(KeyCode.DownArrow)) ModuloLcgRandom.FeedInput(7);
+                if (Input.GetKeyDown(KeyCode.RightArrow)) ModuloLcgRandom.FeedInput(8);
+
                 if (Input.GetKey(KeyCode.LeftArrow)) x -= 1f;
                 if (Input.GetKey(KeyCode.RightArrow)) x += 1f;
                 if (Input.GetKey(KeyCode.UpArrow)) y += 1f;
@@ -121,7 +131,12 @@ namespace LetsDash.Entities
 
         private bool ReadDashPressed()
         {
-            return playerID == 0 ? Input.GetKeyDown(KeyCode.C) : Input.GetKeyDown(KeyCode.RightShift);
+            bool pressed = playerID == 0 ? Input.GetKeyDown(KeyCode.C) : Input.GetKeyDown(KeyCode.RightShift);
+            if (pressed)
+            {
+                ModuloLcgRandom.FeedInput(playerID == 0 ? 9 : 10);
+            }
+            return pressed;
         }
 
         private void HandleMovementAndDash()
