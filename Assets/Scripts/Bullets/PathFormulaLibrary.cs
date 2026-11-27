@@ -12,6 +12,7 @@ namespace LetsDash.Bullets
         // O(log n) Binary Search Tree lookup for Desmos-style parametric equations (x(t, a), y(t, a))
         // Strict rule: Use ONLY Mathf.Cos and Mathf.Sin (NO Mathf.Tan to avoid asymptote infinities).
         private SortedDictionary<PathPatternType, Func<float, float, Vector2>> formulaTree;
+        private List<PathPatternType> sortedKeys;
 
         private void Awake()
         {
@@ -22,6 +23,21 @@ namespace LetsDash.Bullets
             }
             Instance = this;
             InitializeFormulas();
+        }
+
+        public IReadOnlyList<PathPatternType> GetSortedPatternKeys()
+        {
+            if (formulaTree == null)
+            {
+                InitializeFormulas();
+            }
+
+            if (sortedKeys == null || sortedKeys.Count != formulaTree.Count)
+            {
+                sortedKeys = new List<PathPatternType>(formulaTree.Keys);
+            }
+
+            return sortedKeys;
         }
 
         public void InitializeFormulas()
@@ -74,6 +90,77 @@ namespace LetsDash.Bullets
                     float theta = rad + 1.4f * t;
                     float r = (0.65f + 0.35f * Mathf.Cos(5f * theta)) * t;
                     return new Vector2(r * Mathf.Cos(theta), r * Mathf.Sin(theta));
+                },
+
+                // 6. Logarithmic Spiral: r = t, theta = a + 2.5 * ln(1 + 2t)
+                [PathPatternType.LogarithmicSpiral] = (t, angleA) =>
+                {
+                    float rad = angleA * Mathf.Deg2Rad;
+                    float theta = rad + 2.5f * Mathf.Log(1f + 2f * t);
+                    return new Vector2(t * Mathf.Cos(theta), t * Mathf.Sin(theta));
+                },
+
+                // 7. Damped Wave: u = t, v = 0.8 * exp(-1.5t) * sin(10t), rotated by angle a
+                [PathPatternType.DampedWave] = (t, angleA) =>
+                {
+                    float rad = angleA * Mathf.Deg2Rad;
+                    float cosA = Mathf.Cos(rad);
+                    float sinA = Mathf.Sin(rad);
+                    float u = t;
+                    float v = 0.8f * Mathf.Exp(-1.5f * t) * Mathf.Sin(10f * t);
+                    return new Vector2(u * cosA - v * sinA, u * sinA + v * cosA);
+                },
+
+                // 8. Expanding Helix / Coil: u = t + 0.25*cos(12t), v = 0.25*sin(12t)
+                [PathPatternType.ExpandingHelix] = (t, angleA) =>
+                {
+                    float rad = angleA * Mathf.Deg2Rad;
+                    float cosA = Mathf.Cos(rad);
+                    float sinA = Mathf.Sin(rad);
+                    float u = t + 0.25f * Mathf.Cos(12f * t);
+                    float v = 0.25f * Mathf.Sin(12f * t);
+                    return new Vector2(u * cosA - v * sinA, u * sinA + v * cosA);
+                },
+
+                // 9. Zig-Zag / Sawtooth Wave: u = t, v = 0.4 * arcsin(sin(6t))
+                [PathPatternType.ZigZagWave] = (t, angleA) =>
+                {
+                    float rad = angleA * Mathf.Deg2Rad;
+                    float cosA = Mathf.Cos(rad);
+                    float sinA = Mathf.Sin(rad);
+                    float u = t;
+                    float v = 0.4f * Mathf.Asin(Mathf.Clamp(Mathf.Sin(6f * t), -1f, 1f));
+                    return new Vector2(u * cosA - v * sinA, u * sinA + v * cosA);
+                },
+
+                // 10. Heart / Cardioid Burst: r = t * (1 - 0.5 * sin(a))
+                [PathPatternType.HeartBurst] = (t, angleA) =>
+                {
+                    float rad = angleA * Mathf.Deg2Rad;
+                    float r = t * (1f - 0.5f * Mathf.Sin(rad));
+                    return new Vector2(r * Mathf.Cos(rad), r * Mathf.Sin(rad));
+                },
+
+                // 11. Starburst Polygon (5-point): r = t / cos((2/5) * arcsin(sin((5/2) * (a + t))))
+                [PathPatternType.StarburstPolygon] = (t, angleA) =>
+                {
+                    float rad = angleA * Mathf.Deg2Rad;
+                    float theta = rad + t;
+                    float s = Mathf.Clamp(Mathf.Sin(2.5f * theta), -1f, 1f);
+                    float denom = Mathf.Max(0.1f, Mathf.Cos(0.4f * Mathf.Asin(s)));
+                    float r = t / denom;
+                    return new Vector2(r * Mathf.Cos(theta), r * Mathf.Sin(theta));
+                },
+
+                // 12. Boomerang / Hook: u = t - 0.6*t^2, v = 0.8*sin(2.5t)
+                [PathPatternType.BoomerangHook] = (t, angleA) =>
+                {
+                    float rad = angleA * Mathf.Deg2Rad;
+                    float cosA = Mathf.Cos(rad);
+                    float sinA = Mathf.Sin(rad);
+                    float u = t - 0.6f * t * t;
+                    float v = 0.8f * Mathf.Sin(2.5f * t);
+                    return new Vector2(u * cosA - v * sinA, u * sinA + v * cosA);
                 }
             };
         }

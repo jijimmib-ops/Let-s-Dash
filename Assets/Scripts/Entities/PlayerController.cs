@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using LetsDash.Core;
 using LetsDash.Bullets;
@@ -41,6 +42,8 @@ namespace LetsDash.Entities
         private bool isInvulnerable;
         private Rigidbody2D rb;
 
+        private readonly Dictionary<WeaponUpgradeFlags, int> upgradeStacks = new Dictionary<WeaponUpgradeFlags, int>();
+
         public int EntityID => playerID;
         public float CurrentHP => currentHP;
         public float MaxHP => maxHP;
@@ -49,6 +52,12 @@ namespace LetsDash.Entities
         public bool IsInvulnerable => isInvulnerable;
 
         public static event Action<int, int> OnExtraLivesChanged;
+        public static event Action<int, WeaponUpgradeFlags, int> OnUpgradeStacked;
+
+        public int GetUpgradeStack(WeaponUpgradeFlags flag)
+        {
+            return upgradeStacks.TryGetValue(flag, out int count) ? count : 0;
+        }
 
         private void Awake()
         {
@@ -57,6 +66,15 @@ namespace LetsDash.Entities
             if (firePivot == null)
             {
                 firePivot = transform;
+            }
+
+            // Seed stack counts if any flags were pre-enabled in the Inspector
+            foreach (WeaponUpgradeFlags flag in Enum.GetValues(typeof(WeaponUpgradeFlags)))
+            {
+                if (flag != WeaponUpgradeFlags.None && activeUpgrades.HasFlag(flag))
+                {
+                    upgradeStacks[flag] = 1;
+                }
             }
         }
 
@@ -151,27 +169,28 @@ namespace LetsDash.Entities
         {
             if (BulletPoolManager.Instance == null || firePivot == null) return;
 
-            // Pure functional rate and damage modifiers
+            int rapidStacks = GetUpgradeStack(WeaponUpgradeFlags.RapidFire);
+            int damageStacks = GetUpgradeStack(WeaponUpgradeFlags.DamageUp);
+            int parallelStacks = GetUpgradeStack(WeaponUpgradeFlags.ParallelOffset);
+
+            // Pure functional rate and damage modifiers (stackable)
             Func<float, float> rateModifier = interval =>
-                activeUpgrades.HasFlag(WeaponUpgradeFlags.RapidFire) ? interval * 0.65f : interval;
+                rapidStacks > 0 ? interval * Mathf.Max(0.28f, Mathf.Pow(0.82f, rapidStacks)) : interval;
 
             Func<float, float> damageModifier = dmg =>
-                activeUpgrades.HasFlag(WeaponUpgradeFlags.DamageUp) ? dmg * 1.45f : dmg;
+                damageStacks > 0 ? dmg * (1f + 0.35f * damageStacks) : dmg;
 
             fireTimer += Time.deltaTime;
             if (fireTimer < rateModifier(baseFireInterval)) return;
             fireTimer = 0f;
 
-            // Pure function calculating X-axis parallel offsets from the SINGLE FirePivot
+            // Pure function calculating symmetric X-axis parallel offsets from the SINGLE FirePivot (1..5 rails)
+            int parallelCount = Mathf.Min(5, 1 + parallelStacks);
             Func<int, float> getParallelOffsetX = index =>
-            {
-                if (!activeUpgrades.HasFlag(WeaponUpgradeFlags.ParallelOffset)) return 0f;
-                return index == 0 ? -parallelOffsetDistance : parallelOffsetDistance;
-            };
+                (index - (parallelCount - 1) * 0.5f) * parallelOffsetDistance;
 
             // Pure function calculating spread angles centered on 90 deg upward
             float[] spreadAngles = BuildSpreadAngles();
-            int parallelCount = activeUpgrades.HasFlag(WeaponUpgradeFlags.ParallelOffset) ? 2 : 1;
             float finalDamage = damageModifier(baseDamage);
 
             for (int p = 0; p < parallelCount; p++)
@@ -200,17 +219,23 @@ namespace LetsDash.Entities
 
         private float[] BuildSpreadAngles()
         {
-            Func<float, float> clampSpread = angle => 90f + angle;
+            int spread2Stacks = GetUpgradeStack(WeaponUpgradeFlags.Spread2Way);
+            int spread3Stacks = GetUpgradeStack(WeaponUpgradeFlags.Spread3Way);
+            int totalWays = Mathf.Min(9, 1 + spread2Stacks + spread3Stacks * 2);
 
-            if (activeUpgrades.HasFlag(WeaponUpgradeFlags.Spread3Way))
+            if (totalWays <= 1)
             {
-                return new[] { clampSpread(-22f), clampSpread(0f), clampSpread(22f) };
+                return new[] { 90f };
             }
-            if (activeUpgrades.HasFlag(WeaponUpgradeFlags.Spread2Way))
+
+            float halfSpan = Mathf.Min(38f, (totalWays - 1) * 9f);
+            float[] angles = new float[totalWays];
+            for (int i = 0; i < totalWays; i++)
             {
-                return new[] { clampSpread(-12f), clampSpread(12f) };
+                float t = (float)i / (totalWays - 1);
+                angles[i] = 90f + Mathf.Lerp(-halfSpan, halfSpan, t);
             }
-            return new[] { clampSpread(0f) };
+            return angles;
         }
 
         public void CollectCrateAndUpgradePartner(WeaponUpgradeFlags flag)
@@ -228,6 +253,9 @@ namespace LetsDash.Entities
         public void ReceivePartnerUpgrade(WeaponUpgradeFlags flag)
         {
             activeUpgrades |= flag;
+            int nextLevel = GetUpgradeStack(flag) + 1;
+            upgradeStacks[flag] = nextLevel;
+            OnUpgradeStacked?.Invoke(playerID, flag, nextLevel);
             AudioAndVFXManager.Instance?.SpawnPickupVFX(transform.position);
             AudioAndVFXManager.Instance?.PlayPickupSFX();
         }

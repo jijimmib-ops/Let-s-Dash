@@ -35,19 +35,39 @@ namespace LetsDash.Entities
         [SerializeField] private LayerMask leftPlayerMask;
         [SerializeField] private LayerMask rightPlayerMask;
 
-        [Header("Stage Progression (Deterministic Modulo)")]
+        [Header("Stage Progression (Deterministic Modulo + Cached History)")]
         [SerializeField] private BossStageConfig[] stages;
-        [SerializeField] private float stageDuration = 12f;
+        [SerializeField] private float stageDuration = 11f;
         [SerializeField] private int currentSeed = 7;
 
+        [Header("Time-Scaled Pivot Balance")]
+        [SerializeField] private float streamScaleIntervalSeconds = 45f;
+        [SerializeField] private int maxBonusStreamsPerPivot = 6;
+
+        private const string CacheRunCountKey = "LetsDash_ModuloCache_RunCount";
+        private const string CacheLastSeedKey = "LetsDash_ModuloCache_LastSeed";
+        private const string CacheRecentOpeningsKey = "LetsDash_ModuloCache_RecentOpenings";
+        private const int MaxCachedOpenings = 8;
+
         private int currentStageIndex;
+        private int stageCursor;
+        private int runNumber = 1;
         private float stageTimer;
         private float fireTimer;
         private float elapsedFightTime;
 
+        private readonly List<PathPatternType> runPatternDeck = new List<PathPatternType>();
+        private readonly List<PathPatternType> activePivotPatterns = new List<PathPatternType>();
+        private readonly Dictionary<PathPatternType, BossStageConfig> stageLookup = new Dictionary<PathPatternType, BossStageConfig>();
+
         public int EntityID => bossID;
         public float CurrentHP => currentHP;
         public float MaxHP => maxHP;
+        public int RunNumber => runNumber;
+        public int CurrentBonusStreams => streamScaleIntervalSeconds > 0f
+            ? Mathf.Min(maxBonusStreamsPerPivot, Mathf.FloorToInt(elapsedFightTime / streamScaleIntervalSeconds))
+            : 0;
+        public IReadOnlyList<PathPatternType> ActivePivotPatterns => activePivotPatterns;
 
         private void Awake()
         {
@@ -62,6 +82,8 @@ namespace LetsDash.Entities
             }
 
             EnsureDefaultStages();
+            BuildStageLookup();
+            InitializeCachedModuloRun();
         }
 
         private void Start()
@@ -129,8 +151,263 @@ namespace LetsDash.Entities
                     fireInterval = 0.28f,
                     sweepAmplitudeDeg = 180f,
                     projectilesPerPivot = 6
+                },
+                new BossStageConfig
+                {
+                    stageName = "Logarithmic Spiral",
+                    pattern = PathPatternType.LogarithmicSpiral,
+                    bulletVisual = BulletVisualType.Bullet_1,
+                    bulletSpeed = 1.8f,
+                    bulletLifeTime = 6.5f,
+                    fireInterval = 0.26f,
+                    sweepAmplitudeDeg = 180f,
+                    projectilesPerPivot = 6
+                },
+                new BossStageConfig
+                {
+                    stageName = "Damped Wave",
+                    pattern = PathPatternType.DampedWave,
+                    bulletVisual = BulletVisualType.Bullet_2,
+                    bulletSpeed = 2.2f,
+                    bulletLifeTime = 6.8f,
+                    fireInterval = 0.28f,
+                    sweepAmplitudeDeg = 16f,
+                    projectilesPerPivot = 4
+                },
+                new BossStageConfig
+                {
+                    stageName = "Expanding Helix",
+                    pattern = PathPatternType.ExpandingHelix,
+                    bulletVisual = BulletVisualType.Bullet_1,
+                    bulletSpeed = 2.1f,
+                    bulletLifeTime = 7.0f,
+                    fireInterval = 0.26f,
+                    sweepAmplitudeDeg = 18f,
+                    projectilesPerPivot = 4
+                },
+                new BossStageConfig
+                {
+                    stageName = "Zig-Zag Sawtooth",
+                    pattern = PathPatternType.ZigZagWave,
+                    bulletVisual = BulletVisualType.Bullet_2,
+                    bulletSpeed = 2.15f,
+                    bulletLifeTime = 6.8f,
+                    fireInterval = 0.30f,
+                    sweepAmplitudeDeg = 16f,
+                    projectilesPerPivot = 4
+                },
+                new BossStageConfig
+                {
+                    stageName = "Heart Cardioid Burst",
+                    pattern = PathPatternType.HeartBurst,
+                    bulletVisual = BulletVisualType.Bullet_2,
+                    bulletSpeed = 1.9f,
+                    bulletLifeTime = 7.0f,
+                    fireInterval = 0.52f,
+                    sweepAmplitudeDeg = 180f,
+                    projectilesPerPivot = 8
+                },
+                new BossStageConfig
+                {
+                    stageName = "Starburst Polygon",
+                    pattern = PathPatternType.StarburstPolygon,
+                    bulletVisual = BulletVisualType.Bullet_1,
+                    bulletSpeed = 1.85f,
+                    bulletLifeTime = 7.2f,
+                    fireInterval = 0.48f,
+                    sweepAmplitudeDeg = 180f,
+                    projectilesPerPivot = 8
+                },
+                new BossStageConfig
+                {
+                    stageName = "Boomerang Hook",
+                    pattern = PathPatternType.BoomerangHook,
+                    bulletVisual = BulletVisualType.Bullet_3,
+                    bulletSpeed = 2.4f,
+                    bulletLifeTime = 4.6f,
+                    fireInterval = 0.38f,
+                    sweepAmplitudeDeg = 22f,
+                    projectilesPerPivot = 4
                 }
             };
+        }
+
+        private void BuildStageLookup()
+        {
+            stageLookup.Clear();
+            if (stages == null) return;
+            for (int i = 0; i < stages.Length; i++)
+            {
+                if (!stageLookup.ContainsKey(stages[i].pattern))
+                {
+                    stageLookup[stages[i].pattern] = stages[i];
+                }
+            }
+        }
+
+        private List<PathPatternType> ReadAvailableSortedKeys()
+        {
+            if (PathFormulaLibrary.Instance != null)
+            {
+                return new List<PathPatternType>(PathFormulaLibrary.Instance.GetSortedPatternKeys());
+            }
+
+            // Fallback sorted keys matching PathFormulaLibrary's SortedDictionary order
+            var fallback = new SortedSet<PathPatternType>();
+            if (stages != null)
+            {
+                for (int i = 0; i < stages.Length; i++)
+                {
+                    fallback.Add(stages[i].pattern);
+                }
+            }
+            return new List<PathPatternType>(fallback);
+        }
+
+        private void InitializeCachedModuloRun()
+        {
+            List<PathPatternType> sortedKeys = ReadAvailableSortedKeys();
+            if (sortedKeys.Count == 0) return;
+
+            int cachedRunCount = PlayerPrefs.GetInt(CacheRunCountKey, 0);
+            int cachedLastSeed = PlayerPrefs.GetInt(CacheLastSeedKey, currentSeed);
+            string cachedOpeningsRaw = PlayerPrefs.GetString(CacheRecentOpeningsKey, string.Empty);
+
+            var recentOpenings = new List<string>();
+            if (!string.IsNullOrEmpty(cachedOpeningsRaw))
+            {
+                string[] parts = cachedOpeningsRaw.Split(',');
+                for (int i = 0; i < parts.Length; i++)
+                {
+                    if (!string.IsNullOrEmpty(parts[i])) recentOpenings.Add(parts[i]);
+                }
+            }
+
+            runNumber = cachedRunCount + 1;
+            int timeEntropy = (int)(DateTime.UtcNow.Ticks & 0x7FFFFFFF);
+            int candidateSeed = Mathf.Abs((cachedLastSeed * 1103515 + 12345 + runNumber * 97 + timeEntropy) % 999983);
+            if (candidateSeed == 0) candidateSeed = 7;
+
+            int pivotCount = Mathf.Max(1, pivotPoints.Count);
+            string chosenSignature = string.Empty;
+
+            // Search deterministic modulo permutations until opening avoids recent cached playthroughs
+            for (int attempt = 0; attempt < 24; attempt++)
+            {
+                int trySeed = candidateSeed + attempt * 131;
+                BuildDeckWithModuloSeed(sortedKeys, trySeed);
+                chosenSignature = BuildOpeningSignature(pivotCount);
+
+                if (!recentOpenings.Contains(chosenSignature))
+                {
+                    candidateSeed = trySeed;
+                    break;
+                }
+            }
+
+            currentSeed = candidateSeed;
+            stageCursor = 0;
+            AssignNonDuplicatePivotPatterns();
+
+            recentOpenings.Add(chosenSignature);
+            while (recentOpenings.Count > MaxCachedOpenings)
+            {
+                recentOpenings.RemoveAt(0);
+            }
+
+            PlayerPrefs.SetInt(CacheRunCountKey, runNumber);
+            PlayerPrefs.SetInt(CacheLastSeedKey, currentSeed);
+            PlayerPrefs.SetString(CacheRecentOpeningsKey, string.Join(",", recentOpenings));
+            PlayerPrefs.Save();
+        }
+
+        private void BuildDeckWithModuloSeed(List<PathPatternType> sortedKeys, int seed)
+        {
+            runPatternDeck.Clear();
+            int n = sortedKeys.Count;
+            if (n == 0) return;
+
+            // Pick a stride coprime to n (for n = 12: 5, 7, 11, or 1)
+            int[] coprimeCandidates = { 5, 7, 11, 1 };
+            int stride = 1;
+            for (int c = 0; c < coprimeCandidates.Length; c++)
+            {
+                int cand = coprimeCandidates[(seed + c) % coprimeCandidates.Length];
+                if (GreatestCommonDivisor(cand, n) == 1)
+                {
+                    stride = cand;
+                    break;
+                }
+            }
+
+            int startOffset = ((seed % n) + n) % n;
+            for (int i = 0; i < n; i++)
+            {
+                int idx = (startOffset + i * stride) % n;
+                runPatternDeck.Add(sortedKeys[idx]);
+            }
+
+            // Deterministic modulo swap pass for extra variety across 12! permutations
+            int mix = seed;
+            for (int i = n - 1; i > 0; i--)
+            {
+                mix = Mathf.Abs((mix * 48271 + 37) % 2147483647);
+                int j = mix % (i + 1);
+                (runPatternDeck[i], runPatternDeck[j]) = (runPatternDeck[j], runPatternDeck[i]);
+            }
+        }
+
+        private string BuildOpeningSignature(int pivotCount)
+        {
+            int count = Mathf.Min(pivotCount, runPatternDeck.Count);
+            var ids = new string[count];
+            for (int i = 0; i < count; i++)
+            {
+                ids[i] = ((int)runPatternDeck[i]).ToString();
+            }
+            return string.Join("-", ids);
+        }
+
+        private static int GreatestCommonDivisor(int a, int b)
+        {
+            a = Mathf.Abs(a);
+            b = Mathf.Abs(b);
+            while (b != 0)
+            {
+                int t = a % b;
+                a = b;
+                b = t;
+            }
+            return a;
+        }
+
+        private void AssignNonDuplicatePivotPatterns()
+        {
+            activePivotPatterns.Clear();
+            if (runPatternDeck.Count == 0) return;
+
+            int deckCount = runPatternDeck.Count;
+            int pivotCount = Mathf.Max(1, pivotPoints.Count);
+
+            for (int p = 0; p < pivotCount; p++)
+            {
+                int idx = ((stageCursor + p) % deckCount + deckCount) % deckCount;
+                activePivotPatterns.Add(runPatternDeck[idx]);
+            }
+
+            // Sync primary currentStageIndex with Pivot 0's pattern
+            if (activePivotPatterns.Count > 0 && stages != null)
+            {
+                PathPatternType leadPattern = activePivotPatterns[0];
+                for (int i = 0; i < stages.Length; i++)
+                {
+                    if (stages[i].pattern == leadPattern)
+                    {
+                        currentStageIndex = i;
+                        break;
+                    }
+                }
+            }
         }
 
         private void Update()
@@ -163,49 +440,83 @@ namespace LetsDash.Entities
 
         public void SelectNextStageModulo()
         {
-            if (stages == null || stages.Length == 0) return;
-            int len = stages.Length;
-            int val = currentSeed + Mathf.FloorToInt(elapsedFightTime * 0.5f) + 1;
-            currentSeed = val;
-            // Guaranteed positive modulo index
-            currentStageIndex = (val % len + len) % len;
+            if (runPatternDeck.Count == 0)
+            {
+                InitializeCachedModuloRun();
+            }
+
+            int deckCount = runPatternDeck.Count;
+            if (deckCount == 0) return;
+
+            int pivotCount = Mathf.Max(1, pivotPoints.Count);
+            // Choose smallest step >= pivotCount that is coprime to deckCount so consecutive stages share 0 patterns
+            int step = 1;
+            for (int candidate = pivotCount; candidate < deckCount + pivotCount; candidate++)
+            {
+                if (GreatestCommonDivisor(candidate, deckCount) == 1)
+                {
+                    step = candidate;
+                    break;
+                }
+            }
+
+            int nextCursor = stageCursor + step;
+            if (nextCursor >= deckCount)
+            {
+                // Completed a full sweep of the 12-formula deck: advance seed & re-permute
+                currentSeed += Mathf.FloorToInt(elapsedFightTime) + 17;
+                BuildDeckWithModuloSeed(ReadAvailableSortedKeys(), currentSeed);
+            }
+            stageCursor = ((nextCursor % deckCount) + deckCount) % deckCount;
+
+            AssignNonDuplicatePivotPatterns();
         }
 
-        public void ExecuteFirePattern(BossStageConfig stage)
+        public void ExecuteFirePattern(BossStageConfig fallbackStage)
         {
             if (BulletPoolManager.Instance == null || pivotPoints.Count == 0) return;
 
-            float sweep = Mathf.Sin(elapsedFightTime * 2.4f) * stage.sweepAmplitudeDeg;
+            int bonusStreams = CurrentBonusStreams;
 
             for (int p = 0; p < pivotPoints.Count; p++)
             {
                 Transform pivot = pivotPoints[p];
                 if (pivot == null) continue;
 
+                PathPatternType pivotPattern = p < activePivotPatterns.Count
+                    ? activePivotPatterns[p]
+                    : fallbackStage.pattern;
+
+                BossStageConfig pivotStage = stageLookup.TryGetValue(pivotPattern, out var cfg)
+                    ? cfg
+                    : fallbackStage;
+
                 // Left pivots target Left player mask; Right pivots target Right player mask
                 bool isLeftSide = pivot.position.x < 0f;
                 LayerMask targetMask = isLeftSide ? leftPlayerMask : rightPlayerMask;
 
-                int count = Mathf.Max(1, stage.projectilesPerPivot);
+                float sweep = Mathf.Sin(elapsedFightTime * 2.4f + p * 0.65f) * pivotStage.sweepAmplitudeDeg;
+                int count = Mathf.Max(1, pivotStage.projectilesPerPivot + bonusStreams);
+
                 for (int i = 0; i < count; i++)
                 {
                     float spreadOffset = 0f;
                     if (count > 1)
                     {
                         float t = (float)i / (count - 1) - 0.5f;
-                        spreadOffset = t * (stage.sweepAmplitudeDeg * 2f);
+                        spreadOffset = t * (pivotStage.sweepAmplitudeDeg * 2f);
                     }
 
                     // -90 deg points straight downward
                     float angleA = -90f + sweep + spreadOffset;
 
                     BulletPoolManager.Instance.SpawnBullet(
-                        stage.bulletVisual,
-                        stage.pattern,
+                        pivotStage.bulletVisual,
+                        pivotPattern,
                         pivot.position,
                         angleA,
-                        stage.bulletSpeed,
-                        stage.bulletLifeTime,
+                        pivotStage.bulletSpeed,
+                        pivotStage.bulletLifeTime,
                         15f,
                         targetMask,
                         bossID
