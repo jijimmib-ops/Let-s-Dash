@@ -14,17 +14,15 @@ namespace LetsDash.Entities
         [SerializeField] private int playerID = 0; // 0 = Left (WASD+C), 1 = Right (Arrows+RightShift)
         [SerializeField] private PlayerController partnerPlayer;
 
-        [Header("Stats")]
+        [Header("Stats & Extra Lives")]
         [SerializeField] private float maxHP = 250f;
         [SerializeField] private float currentHP;
+        [SerializeField] private int extraLives = 3;
+        [SerializeField] private float reviveInvulnerabilityDuration = 3f;
         [SerializeField] private float moveSpeed = 6.5f;
         [SerializeField] private float dashSpeedMultiplier = 2.6f;
         [SerializeField] private float dashDuration = 0.16f;
         [SerializeField] private float dashCooldown = 1.1f;
-
-        [Header("Arena Bounds")]
-        [SerializeField] private Vector2 minBounds = new Vector2(-8f, -4.5f);
-        [SerializeField] private Vector2 maxBounds = new Vector2(-0.5f, 1.5f);
 
         [Header("Single FirePivot & Weapon Modifiers")]
         [SerializeField] private Transform firePivot;
@@ -37,19 +35,25 @@ namespace LetsDash.Entities
 
         private float dashTimer;
         private float dashCooldownTimer;
+        private float reviveInvulnTimer;
         private float fireTimer;
         private Vector2 dashDirection;
         private bool isInvulnerable;
+        private Rigidbody2D rb;
 
         public int EntityID => playerID;
         public float CurrentHP => currentHP;
         public float MaxHP => maxHP;
+        public int ExtraLives => extraLives;
         public WeaponUpgradeFlags ActiveUpgrades => activeUpgrades;
         public bool IsInvulnerable => isInvulnerable;
+
+        public static event Action<int, int> OnExtraLivesChanged;
 
         private void Awake()
         {
             currentHP = maxHP;
+            rb = GetComponent<Rigidbody2D>();
             if (firePivot == null)
             {
                 firePivot = transform;
@@ -59,12 +63,14 @@ namespace LetsDash.Entities
         private void Start()
         {
             HealthObserver.NotifyHealthChanged(playerID, currentHP, maxHP);
+            OnExtraLivesChanged?.Invoke(playerID, extraLives);
         }
 
         private void Update()
         {
             if (GameManager.Instance != null && GameManager.Instance.CurrentState != GameState.Playing)
             {
+                if (rb != null) rb.linearVelocity = Vector2.zero;
                 return;
             }
 
@@ -104,6 +110,7 @@ namespace LetsDash.Entities
         {
             float dt = Time.deltaTime;
             if (dashCooldownTimer > 0f) dashCooldownTimer -= dt;
+            if (reviveInvulnTimer > 0f) reviveInvulnTimer -= dt;
 
             Vector2 input = ReadInputAxis();
 
@@ -112,7 +119,6 @@ namespace LetsDash.Entities
                 dashDirection = input.sqrMagnitude > 0.01f ? input : Vector2.up;
                 dashTimer = dashDuration;
                 dashCooldownTimer = dashCooldown;
-                isInvulnerable = true;
                 AudioAndVFXManager.Instance?.SpawnDashVFX(transform.position);
                 AudioAndVFXManager.Instance?.PlayDashSFX();
             }
@@ -122,20 +128,23 @@ namespace LetsDash.Entities
             {
                 dashTimer -= dt;
                 velocity = dashDirection * (moveSpeed * dashSpeedMultiplier);
-                if (dashTimer <= 0f)
-                {
-                    isInvulnerable = false;
-                }
             }
             else
             {
                 velocity = input * moveSpeed;
             }
 
-            Vector2 nextPos = (Vector2)transform.position + velocity * dt;
-            nextPos.x = Mathf.Clamp(nextPos.x, minBounds.x, maxBounds.x);
-            nextPos.y = Mathf.Clamp(nextPos.y, minBounds.y, maxBounds.y);
-            transform.position = nextPos;
+            isInvulnerable = dashTimer > 0f || reviveInvulnTimer > 0f;
+
+            if (rb != null)
+            {
+                // Let 4-sided Wall BoxCollider2Ds & Wall_CenterDivider constrain movement via Physics2D
+                rb.linearVelocity = velocity;
+            }
+            else
+            {
+                transform.position = (Vector2)transform.position + velocity * Time.deltaTime;
+            }
         }
 
         private void AutoFireRoutine()
@@ -228,14 +237,31 @@ namespace LetsDash.Entities
             if (isInvulnerable || currentHP <= 0f) return;
 
             currentHP = Mathf.Max(0f, currentHP - amount);
-            HealthObserver.NotifyHealthChanged(playerID, currentHP, maxHP);
             AudioAndVFXManager.Instance?.PlayHitSFX();
 
             if (currentHP <= 0f)
             {
+                if (extraLives > 0)
+                {
+                    // Extra Life Revive: restore full HP and grant 3s temporary invulnerability
+                    extraLives--;
+                    currentHP = maxHP;
+                    reviveInvulnTimer = reviveInvulnerabilityDuration;
+                    isInvulnerable = true;
+
+                    OnExtraLivesChanged?.Invoke(playerID, extraLives);
+                    HealthObserver.NotifyHealthChanged(playerID, currentHP, maxHP);
+                    AudioAndVFXManager.Instance?.SpawnPickupVFX(transform.position);
+                    return;
+                }
+
+                HealthObserver.NotifyHealthChanged(playerID, 0f, maxHP);
                 AudioAndVFXManager.Instance?.SpawnExplosionVFX(transform.position);
                 GameManager.Instance?.OnEntityDied(playerID);
+                return;
             }
+
+            HealthObserver.NotifyHealthChanged(playerID, currentHP, maxHP);
         }
     }
 }
