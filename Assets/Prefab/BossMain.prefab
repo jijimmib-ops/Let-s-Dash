@@ -116,7 +116,7 @@ Transform:
   m_GameObject: {fileID: 196909641955741203}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 7.05, y: 0, z: 0}
+  m_LocalPosition: {x: 8.63, y: 1.0100002, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -268,15 +268,14 @@ MonoBehaviour:
   pivotPoints:
   - {fileID: 8485821240679007648}
   - {fileID: 6500382621178719774}
-  leftPlayerMask:
+  playerTargetMask:
     serializedVersion: 2
-    m_Bits: 0
-  rightPlayerMask:
-    serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 64
   stages: []
-  stageDuration: 12
+  stageDuration: 1
   currentSeed: 7
+  streamScaleIntervalSeconds: 45
+  maxBonusStreamsPerPivot: 12
 --- !u!1 &3408818366822171553
 GameObject:
   m_ObjectHideFlags: 0
@@ -302,7 +301,7 @@ Transform:
   m_GameObject: {fileID: 3408818366822171553}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -1.25, y: 1.01, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

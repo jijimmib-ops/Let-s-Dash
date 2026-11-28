@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using LetsDash.Core;
@@ -32,8 +33,7 @@ namespace LetsDash.Entities
         [Header("Emitters & Targeting")]
         [SerializeField] private Transform pivotPointsGroup;
         [SerializeField] private List<Transform> pivotPoints = new List<Transform>();
-        [SerializeField] private LayerMask leftPlayerMask;
-        [SerializeField] private LayerMask rightPlayerMask;
+        [SerializeField] private LayerMask playerTargetMask;
 
         [Header("Stage Progression (Deterministic Modulo + Cached History)")]
         [SerializeField] private BossStageConfig[] stages;
@@ -43,6 +43,10 @@ namespace LetsDash.Entities
         [Header("Time-Scaled Pivot Balance")]
         [SerializeField] private float streamScaleIntervalSeconds = 45f;
         [SerializeField] private int maxBonusStreamsPerPivot = 6;
+
+        [Header("Damage Flash")]
+        [SerializeField] private Color damageFlashColor = new Color(1f, 0.25f, 0.25f, 1f);
+        [SerializeField] private float damageFlashDuration = 0.1f;
 
         private const string CacheRunCountKey = "LetsDash_ModuloCache_RunCount";
         private const string CacheLastSeedKey = "LetsDash_ModuloCache_LastSeed";
@@ -55,6 +59,9 @@ namespace LetsDash.Entities
         private float stageTimer;
         private float fireTimer;
         private float elapsedFightTime;
+        private SpriteRenderer[] cachedSpriteRenderers;
+        private Color[] originalSpriteColors;
+        private Coroutine damageFlashCoroutine;
 
         private readonly List<PathPatternType> runPatternDeck = new List<PathPatternType>();
         private readonly List<PathPatternType> activePivotPatterns = new List<PathPatternType>();
@@ -72,6 +79,13 @@ namespace LetsDash.Entities
         private void Awake()
         {
             currentHP = maxHP;
+
+            cachedSpriteRenderers = GetComponentsInChildren<SpriteRenderer>(true);
+            originalSpriteColors = new Color[cachedSpriteRenderers.Length];
+            for (int i = 0; i < cachedSpriteRenderers.Length; i++)
+            {
+                originalSpriteColors[i] = cachedSpriteRenderers[i].color;
+            }
 
             if (pivotPoints.Count == 0 && pivotPointsGroup != null)
             {
@@ -478,6 +492,13 @@ namespace LetsDash.Entities
 
         private void OnDisable()
         {
+            if (damageFlashCoroutine != null)
+            {
+                StopCoroutine(damageFlashCoroutine);
+                damageFlashCoroutine = null;
+            }
+            RestoreOriginalSpriteColors();
+
             if (ModuloLcgRandom.CurrentSeed > 0)
             {
                 PlayerPrefs.SetInt(CacheLastSeedKey, ModuloLcgRandom.CurrentSeed);
@@ -504,10 +525,6 @@ namespace LetsDash.Entities
                     ? cfg
                     : fallbackStage;
 
-                // Left pivots target Left player mask; Right pivots target Right player mask
-                bool isLeftSide = pivot.position.x < 0f;
-                LayerMask targetMask = isLeftSide ? leftPlayerMask : rightPlayerMask;
-
                 float sweep = Mathf.Sin(elapsedFightTime * 2.4f + p * 0.65f) * pivotStage.sweepAmplitudeDeg;
                 int count = Mathf.Max(1, pivotStage.projectilesPerPivot + bonusStreams);
 
@@ -531,7 +548,7 @@ namespace LetsDash.Entities
                         pivotStage.bulletSpeed,
                         pivotStage.bulletLifeTime,
                         15f,
-                        targetMask,
+                        playerTargetMask,
                         bossID
                     );
                 }
@@ -545,12 +562,56 @@ namespace LetsDash.Entities
             if (currentHP <= 0f) return;
 
             currentHP = Mathf.Max(0f, currentHP - amount);
+            TriggerDamageFlash();
             HealthObserver.NotifyHealthChanged(bossID, currentHP, maxHP);
 
             if (currentHP <= 0f)
             {
                 AudioAndVFXManager.Instance?.SpawnExplosionVFX(transform.position);
                 GameManager.Instance?.OnEntityDied(bossID);
+            }
+        }
+
+        private void TriggerDamageFlash()
+        {
+            if (cachedSpriteRenderers == null || cachedSpriteRenderers.Length == 0) return;
+            if (!gameObject.activeInHierarchy) return;
+
+            if (damageFlashCoroutine != null)
+            {
+                StopCoroutine(damageFlashCoroutine);
+                RestoreOriginalSpriteColors();
+            }
+
+            damageFlashCoroutine = StartCoroutine(FlashDamageRedCoroutine());
+        }
+
+        private IEnumerator FlashDamageRedCoroutine()
+        {
+            for (int i = 0; i < cachedSpriteRenderers.Length; i++)
+            {
+                if (cachedSpriteRenderers[i] != null)
+                {
+                    cachedSpriteRenderers[i].color = damageFlashColor;
+                }
+            }
+
+            yield return new WaitForSeconds(damageFlashDuration);
+
+            RestoreOriginalSpriteColors();
+            damageFlashCoroutine = null;
+        }
+
+        private void RestoreOriginalSpriteColors()
+        {
+            if (cachedSpriteRenderers == null || originalSpriteColors == null) return;
+            int count = Mathf.Min(cachedSpriteRenderers.Length, originalSpriteColors.Length);
+            for (int i = 0; i < count; i++)
+            {
+                if (cachedSpriteRenderers[i] != null)
+                {
+                    cachedSpriteRenderers[i].color = originalSpriteColors[i];
+                }
             }
         }
     }

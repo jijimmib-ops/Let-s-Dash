@@ -20,6 +20,8 @@
 │   │   │                         + Rigidbody2D (Dynamic, GravityScale=0, FreezeRotationZ) + single BoxCollider2D (IsTrigger=false) + HitboxRelay
 │   │   ├── FirePivot           (Empty Transform above ship; single 90° pivot for stackable offset/spread)
 │   │   └── Art                 [Comp] SpriteRenderer
+
+
 │   ├── PlayerRight             [Layer: RightPlayer] [Comp] PlayerController (playerID=1, Arrows, partner=PlayerLeft, extraLives=3, bossLayerMask=Boss)
 │   │   │                         + Rigidbody2D (Dynamic, GravityScale=0, FreezeRotationZ) + single BoxCollider2D (IsTrigger=false) + HitboxRelay
 │   │   ├── FirePivot           (Empty Transform above ship; single 90° pivot)
@@ -28,14 +30,19 @@
 │       │                         streamScaleIntervalSeconds=45, cached PlayerPrefs LCG modulo sequence)
 │       ├── HitBox              [Layer: Boss] [Comp] BoxCollider2D (IsTrigger=true) + HitboxRelay
 │       └── PivotPointGroup     (Empty parent containing 4+ Empty Transforms: Pivot_L1, Pivot_L2, Pivot_R1, Pivot_R2)
+
+
 ├── UI_CANVAS
 │   ├── Canvas                  [Comp] Canvas, CanvasScaler (1920x1080), GraphicRaycaster, UIManager
 │   │   ├── HUD_Gameplay        [Comp] RectTransform, Image (raycastTarget=false)
 │   │   │   ├── HP_Bar_Left     [Comp] Image, DynamicHealthBarUI (targetEntityID=0) -> Child: Fill (Image Filled), HP_Text (TMP)
 │   │   │   ├── ExtraLives_Left [Comp] DynamicExtraLivesUI (targetPlayerID=0) -> 3x Life_Icon (Image) + Lives_Text (TMP)
+
+
 │   │   │   ├── HP_Bar_Right    [Comp] Image, DynamicHealthBarUI (targetEntityID=1) -> Child: Fill (Image Filled), HP_Text (TMP)
 │   │   │   ├── ExtraLives_Right[Comp] DynamicExtraLivesUI (targetPlayerID=1) -> 3x Life_Icon (Image) + Lives_Text (TMP)
 │   │   │   ├── HP_Bar_Boss     [Comp] Image, DynamicHealthBarUI (targetEntityID=2) -> Child: Fill (Image Filled), HP_Text (TMP)
+
 │   │   │   ├── Timer_Text      [Comp] TextMeshProUGUI ("08:00")
 │   │   │   ├── Btn_Pause       [Comp] Image, Button -> UIManager.OnClickPause
 │   │   │   └── Btn_Sound_HUD   [Comp] Image, Button -> UIManager.OnClickToggleSound

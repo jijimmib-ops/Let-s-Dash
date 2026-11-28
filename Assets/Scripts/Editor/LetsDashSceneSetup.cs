@@ -2,9 +2,7 @@
 using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.Events;
 using UnityEditor;
-using UnityEditor.Events;
 using UnityEditor.SceneManagement;
 using TMPro;
 using LetsDash.Core;
@@ -34,16 +32,18 @@ namespace LetsDash.Editor
 
             Sprite squareSprite = EnsureSolidSpriteAsset("Assets/Art/Generated/SolidSquare.png", false);
             Sprite circleSprite = EnsureSolidSpriteAsset("Assets/Art/Generated/SolidCircle.png", true);
+            Sprite soundOnSprite = EnsureSoundIconSpriteAsset("Assets/Art/Generated/Icon_SoundOn.png", true);
+            Sprite soundOffSprite = EnsureSoundIconSpriteAsset("Assets/Art/Generated/Icon_SoundOff.png", false);
 
             GameObject bullet1 = EnsureBulletPrefab("Assets/Prefab/Generated/Bullet_1.prefab", circleSprite, 0.22f, new Color(1f, 0.72f, 0.72f));
             GameObject bullet2 = EnsureBulletPrefab("Assets/Prefab/Generated/Bullet_2.prefab", circleSprite, 0.36f, new Color(0.95f, 0.32f, 0.32f));
             GameObject bullet3 = EnsureBulletPrefab("Assets/Prefab/Generated/Bullet_3.prefab", circleSprite, 0.54f, new Color(0.98f, 0.52f, 0.15f));
             GameObject cratePrefab = EnsureCratePrefab("Assets/Prefab/Generated/PowerUpCrate.prefab", squareSprite);
 
-            Collider2D centerDividerCollider = SetupWallsAndDivider();
+            SetupWallBoundaries();
             SetupEntities(out PlayerController leftPlayer, out PlayerController rightPlayer, out BossController boss);
-            SetupManagers(bullet1, bullet2, bullet3, cratePrefab, centerDividerCollider);
-            SetupCanvasUI(squareSprite);
+            SetupManagers(bullet1, bullet2, bullet3, cratePrefab);
+            SetupCanvasUI(squareSprite, soundOnSprite, soundOffSprite);
 
             if (leftPlayer != null && rightPlayer != null)
             {
@@ -142,6 +142,79 @@ namespace LetsDash.Editor
             return AssetDatabase.LoadAssetAtPath<Sprite>(assetPath);
         }
 
+        private static Sprite EnsureSoundIconSpriteAsset(string assetPath, bool soundOn)
+        {
+            string dir = Path.GetDirectoryName(assetPath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            if (!File.Exists(assetPath))
+            {
+                int size = 64;
+                Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+                for (int y = 0; y < size; y++)
+                {
+                    for (int x = 0; x < size; x++)
+                    {
+                        bool draw = false;
+                        // Speaker body box on left side
+                        if (x >= 12 && x <= 22 && y >= 24 && y <= 40)
+                        {
+                            draw = true;
+                        }
+                        // Speaker cone expanding toward center
+                        if (x > 22 && x <= 34)
+                        {
+                            float t = (x - 22f) / 12f;
+                            float halfH = Mathf.Lerp(8f, 18f, t);
+                            if (Mathf.Abs(y - 32f) <= halfH) draw = true;
+                        }
+
+                        if (soundOn)
+                        {
+                            // Concentric sound wave arcs on right side
+                            float dist = Vector2.Distance(new Vector2(x, y), new Vector2(32f, 32f));
+                            if (x >= 36 && ((dist >= 8f && dist <= 11f) || (dist >= 15f && dist <= 18f)))
+                            {
+                                draw = true;
+                            }
+                        }
+                        else
+                        {
+                            // Diagonal X mute mark on right side
+                            if (x >= 39 && x <= 53 && y >= 24 && y <= 40)
+                            {
+                                float dx = x - 46f;
+                                float dy = y - 32f;
+                                if (Mathf.Abs(dx - dy) <= 1.8f || Mathf.Abs(dx + dy) <= 1.8f)
+                                {
+                                    draw = true;
+                                }
+                            }
+                        }
+
+                        tex.SetPixel(x, y, draw ? Color.white : Color.clear);
+                    }
+                }
+                tex.Apply();
+                File.WriteAllBytes(assetPath, tex.EncodeToPNG());
+                Object.DestroyImmediate(tex);
+                AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
+            }
+
+            TextureImporter importer = AssetImporter.GetAtPath(assetPath) as TextureImporter;
+            if (importer != null && importer.textureType != TextureImporterType.Sprite)
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spritePixelsPerUnit = 64;
+                importer.SaveAndReimport();
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(assetPath);
+        }
+
         private static GameObject EnsureBulletPrefab(string path, Sprite sprite, float scale, Color tint)
         {
             string dir = Path.GetDirectoryName(path);
@@ -159,8 +232,9 @@ namespace LetsDash.Editor
             sr.color = tint;
             go.transform.localScale = Vector3.one * scale;
 
-            BoxCollider2D col = go.AddComponent<BoxCollider2D>();
+            CircleCollider2D col = go.AddComponent<CircleCollider2D>();
             col.isTrigger = true;
+            col.radius = 0.48f;
 
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(go, path);
             Object.DestroyImmediate(go);
@@ -194,90 +268,36 @@ namespace LetsDash.Editor
             return prefab;
         }
 
-        private static Collider2D SetupWallsAndDivider()
+        private static void SetupWallBoundaries()
         {
             int wallsLayer = LayerMask.NameToLayer("Walls");
-            GameObject entitiesGroup = GameObject.Find("Entitles") ?? GameObject.Find("Entities") ?? new GameObject("Entities");
 
-            BoxCollider2D topWall = null;
-            BoxCollider2D bottomWall = null;
+            // Remove any legacy center divider object so both players share the full arena freely
+            GameObject legacyDivider = GameObject.Find("Wall_CenterDivider");
+            if (legacyDivider != null)
+            {
+                Object.DestroyImmediate(legacyDivider);
+            }
 
-            // 1. Read Top & Bottom boundary BoxCollider2Ds inside Wall_Boundaries
             GameObject boundariesGroup = GameObject.Find("Wall_Boundaries");
             if (boundariesGroup != null)
             {
-                foreach (BoxCollider2D wallCol in boundariesGroup.GetComponentsInChildren<BoxCollider2D>(true))
+                foreach (Collider2D wallCol in boundariesGroup.GetComponentsInChildren<Collider2D>(true))
                 {
                     if (wallsLayer >= 0) wallCol.gameObject.layer = wallsLayer;
                     wallCol.isTrigger = false;
-
-                    string lower = wallCol.gameObject.name.ToLowerInvariant();
-                    if (lower.Contains("top") || (topWall == null && wallCol.bounds.center.y > 0f && wallCol.bounds.size.x > wallCol.bounds.size.y))
-                    {
-                        if (topWall == null || wallCol.bounds.center.y > topWall.bounds.center.y) topWall = wallCol;
-                    }
-                    if (lower.Contains("bottom") || (bottomWall == null && wallCol.bounds.center.y < 0f && wallCol.bounds.size.x > wallCol.bounds.size.y))
-                    {
-                        if (bottomWall == null || wallCol.bounds.center.y < bottomWall.bounds.center.y) bottomWall = wallCol;
-                    }
                 }
             }
 
-            // 2. Ensure any other wall/boundary/divider objects also sit on Walls layer (never touch HitBox triggers)
             foreach (Collider2D col in Object.FindObjectsByType<Collider2D>(FindObjectsSortMode.None))
             {
                 string lowerName = col.gameObject.name.ToLowerInvariant();
-                bool isWallObj = lowerName.Contains("wall") || lowerName.Contains("divider") || lowerName.Contains("boundary");
-                if (!isWallObj) continue;
-
-                if (wallsLayer >= 0) col.gameObject.layer = wallsLayer;
-                col.isTrigger = false;
-
-                if (col is BoxCollider2D box && !lowerName.Contains("center"))
+                if (lowerName.Contains("wall") || lowerName.Contains("boundary"))
                 {
-                    if (lowerName.Contains("top") && (topWall == null || box.bounds.center.y > topWall.bounds.center.y)) topWall = box;
-                    if (lowerName.Contains("bottom") && (bottomWall == null || box.bounds.center.y < bottomWall.bounds.center.y)) bottomWall = box;
+                    if (wallsLayer >= 0) col.gameObject.layer = wallsLayer;
+                    col.isTrigger = false;
                 }
             }
-
-            GameObject dividerObj = GameObject.Find("Wall_CenterDivider");
-            if (dividerObj == null)
-            {
-                dividerObj = new GameObject("Wall_CenterDivider");
-                dividerObj.transform.SetParent(entitiesGroup.transform);
-                dividerObj.transform.position = Vector3.zero;
-            }
-            if (wallsLayer >= 0) dividerObj.layer = wallsLayer;
-
-            BoxCollider2D dividerCol = dividerObj.GetComponent<BoxCollider2D>() ?? dividerObj.AddComponent<BoxCollider2D>();
-            dividerCol.isTrigger = false;
-
-            // Dynamically span from bottomWall.bounds.max.y to topWall.bounds.min.y plus overlap margin
-            const float overlapMargin = 0.5f;
-            float dividerPosY;
-            float dividerHeight;
-
-            if (topWall != null && bottomWall != null && topWall.bounds.min.y > bottomWall.bounds.max.y)
-            {
-                float minY = bottomWall.bounds.max.y;
-                float maxY = topWall.bounds.min.y;
-                dividerPosY = (minY + maxY) * 0.5f;
-                dividerHeight = (maxY - minY) + overlapMargin * 2f;
-            }
-            else
-            {
-                dividerPosY = dividerObj.transform.position.y;
-                dividerHeight = 30f;
-            }
-
-            Vector3 pos = dividerObj.transform.position;
-            dividerObj.transform.position = new Vector3(pos.x, dividerPosY, pos.z);
-            dividerCol.offset = new Vector2(dividerCol.offset.x, 0f);
-            float scaleY = Mathf.Abs(dividerObj.transform.lossyScale.y) > 0.001f ? Mathf.Abs(dividerObj.transform.lossyScale.y) : 1f;
-            float width = dividerCol.size.x > 0.05f ? dividerCol.size.x : 0.25f;
-            dividerCol.size = new Vector2(width, dividerHeight / scaleY);
-
-            return dividerCol;
         }
 
         private static void SetupEntities(out PlayerController leftPlayer, out PlayerController rightPlayer, out BossController boss)
@@ -286,16 +306,44 @@ namespace LetsDash.Editor
             int rightLayer = LayerMask.NameToLayer("RightPlayer");
             int bossLayer = LayerMask.NameToLayer("Boss");
 
-            leftPlayer = FindOrAssignPlayer("PlayerLeft", 0, leftLayer, bossLayer);
-            rightPlayer = FindOrAssignPlayer("PlayerRight", 1, rightLayer, bossLayer);
+            leftPlayer = FindOrAssignPlayer(new[] { "PlayerLeft", "Player_Left" }, 0, leftLayer, bossLayer);
+            rightPlayer = FindOrAssignPlayer(new[] { "PlayerRight", "Player_Right" }, 1, rightLayer, bossLayer);
 
             boss = Object.FindFirstObjectByType<BossController>();
             if (boss != null)
             {
                 Transform hitboxTf = boss.transform.Find("HitBox") ?? boss.transform.Find("Hitbox");
-                if (hitboxTf != null && bossLayer >= 0)
+                if (hitboxTf != null)
                 {
-                    hitboxTf.gameObject.layer = bossLayer;
+                    if (bossLayer >= 0) hitboxTf.gameObject.layer = bossLayer;
+                    Collider2D bossCol = hitboxTf.GetComponent<Collider2D>();
+                    if (bossCol == null)
+                    {
+                        CircleCollider2D defaultBossCol = hitboxTf.gameObject.AddComponent<CircleCollider2D>();
+                        defaultBossCol.radius = 0.8f;
+                        bossCol = defaultBossCol;
+                    }
+                    bossCol.isTrigger = true;
+                    if (hitboxTf.GetComponent<HitboxRelay>() == null)
+                    {
+                        hitboxTf.gameObject.AddComponent<HitboxRelay>();
+                    }
+                }
+                else
+                {
+                    if (bossLayer >= 0) boss.gameObject.layer = bossLayer;
+                    Collider2D bossCol = boss.GetComponent<Collider2D>();
+                    if (bossCol == null)
+                    {
+                        CircleCollider2D defaultBossCol = boss.gameObject.AddComponent<CircleCollider2D>();
+                        defaultBossCol.radius = 0.8f;
+                        bossCol = defaultBossCol;
+                    }
+                    bossCol.isTrigger = true;
+                    if (boss.GetComponent<HitboxRelay>() == null)
+                    {
+                        boss.gameObject.AddComponent<HitboxRelay>();
+                    }
                 }
 
                 Transform pivotGroup = boss.transform.Find("PivotPointGroup") ?? boss.transform.Find("PivotPoints_Group");
@@ -305,15 +353,25 @@ namespace LetsDash.Editor
                 {
                     bossSo.FindProperty("pivotPointsGroup").objectReferenceValue = pivotGroup;
                 }
-                if (leftLayer >= 0) bossSo.FindProperty("leftPlayerMask").intValue = 1 << leftLayer;
-                if (rightLayer >= 0) bossSo.FindProperty("rightPlayerMask").intValue = 1 << rightLayer;
+
+                int combinedPlayerMask = (leftLayer >= 0 ? (1 << leftLayer) : 0)
+                                       | (rightLayer >= 0 ? (1 << rightLayer) : 0);
+                if (combinedPlayerMask != 0)
+                {
+                    bossSo.FindProperty("playerTargetMask").intValue = combinedPlayerMask;
+                }
                 bossSo.ApplyModifiedProperties();
             }
         }
 
-        private static PlayerController FindOrAssignPlayer(string objName, int playerID, int playerLayer, int bossLayer)
+        private static PlayerController FindOrAssignPlayer(string[] candidateNames, int playerID, int playerLayer, int bossLayer)
         {
-            GameObject playerObj = GameObject.Find(objName);
+            GameObject playerObj = null;
+            foreach (string name in candidateNames)
+            {
+                playerObj = GameObject.Find(name);
+                if (playerObj != null) break;
+            }
             if (playerObj == null) return null;
 
             // Assign LeftPlayer / RightPlayer directly to parent GameObject
@@ -337,13 +395,15 @@ namespace LetsDash.Editor
             rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
             rb.constraints = RigidbodyConstraints2D.FreezeRotation;
 
-            // Single BoxCollider2D (isTrigger = false) on parent handles walls, bullet CircleCast, and crate triggers
-            BoxCollider2D singleCollider = playerObj.GetComponent<BoxCollider2D>() ?? playerObj.AddComponent<BoxCollider2D>();
-            singleCollider.isTrigger = false;
-            if (singleCollider.size.sqrMagnitude < 0.01f)
+            // Single Collider2D (any shape: Circle, Polygon, Capsule, Box) on parent handles walls, bullet CircleCast, and crate triggers
+            Collider2D singleCollider = playerObj.GetComponent<Collider2D>();
+            if (singleCollider == null)
             {
-                singleCollider.size = new Vector2(0.7f, 0.7f);
+                CircleCollider2D defaultCircle = playerObj.AddComponent<CircleCollider2D>();
+                defaultCircle.radius = 0.35f;
+                singleCollider = defaultCircle;
             }
+            singleCollider.isTrigger = false;
 
             // Attach HitboxRelay directly on parent PlayerLeft / PlayerRight
             if (playerObj.GetComponent<HitboxRelay>() == null)
@@ -372,7 +432,7 @@ namespace LetsDash.Editor
             so.ApplyModifiedProperties();
         }
 
-        private static void SetupManagers(GameObject bullet1, GameObject bullet2, GameObject bullet3, GameObject cratePrefab, Collider2D centerDividerCollider)
+        private static void SetupManagers(GameObject bullet1, GameObject bullet2, GameObject bullet3, GameObject cratePrefab)
         {
             GameObject managers = GameObject.Find("Managers") ?? GameObject.Find("@GameManager") ?? new GameObject("Managers");
 
@@ -390,10 +450,6 @@ namespace LetsDash.Editor
 
             int wallsLayer = LayerMask.NameToLayer("Walls");
             if (wallsLayer >= 0) poolSo.FindProperty("wallBlockingMask").intValue = 1 << wallsLayer;
-            if (centerDividerCollider != null)
-            {
-                poolSo.FindProperty("centerDividerCollider").objectReferenceValue = centerDividerCollider;
-            }
             poolSo.ApplyModifiedProperties();
 
             ParallelItemSpawner spawner = managers.GetComponent<ParallelItemSpawner>() ?? managers.AddComponent<ParallelItemSpawner>();
@@ -441,7 +497,7 @@ namespace LetsDash.Editor
             element.FindPropertyRelative("scale").floatValue = scale;
         }
 
-        private static void SetupCanvasUI(Sprite solidSprite)
+        private static void SetupCanvasUI(Sprite solidSprite, Sprite soundOnSprite, Sprite soundOffSprite)
         {
             Canvas canvas = Object.FindFirstObjectByType<Canvas>();
             if (canvas == null)
@@ -479,14 +535,14 @@ namespace LetsDash.Editor
             CreateHealthBar(hud.transform, "HP_Bar_Boss", 2, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -45f), new Vector2(520f, 24f), new Color(0.93f, 0.27f, 0.27f), solidSprite);
 
             TMP_Text timerText = CreateTMP(hud.transform, "Timer_Text", "08:00", 30, new Vector2(0.5f, 1f), new Vector2(0f, -82f), new Vector2(200f, 40f));
-            Button pauseBtn = CreateButton(hud.transform, "Btn_Pause", "Pause", new Vector2(0.5f, 1f), new Vector2(170f, -82f), new Vector2(110f, 36f), solidSprite, uiMgr.OnClickPause);
-            Button hudSoundBtn = CreateButton(hud.transform, "Btn_Sound_HUD", "Sound: ON", new Vector2(0.5f, 1f), new Vector2(-170f, -82f), new Vector2(120f, 36f), solidSprite, uiMgr.OnClickToggleSound);
+            Button pauseBtn = CreateButton(hud.transform, "Btn_Pause", "Pause", new Vector2(0.5f, 1f), new Vector2(170f, -82f), new Vector2(110f, 36f), solidSprite);
+            Button hudSoundBtn = CreateIconButton(hud.transform, "Btn_Sound_HUD", new Vector2(0.5f, 1f), new Vector2(-150f, -82f), new Vector2(40f, 40f), soundOnSprite);
 
             // 2. Panel_Menu
             GameObject menu = CreatePanel(canvas.transform, "Panel_Menu", Vector2.zero, Vector2.one, new Color(0.04f, 0.07f, 0.13f, 0.92f), solidSprite);
             CreateTMP(menu.transform, "Title_Menu", "LET'S DASH", 64, new Vector2(0.5f, 0.5f), new Vector2(0f, 110f), new Vector2(600f, 90f));
-            CreateButton(menu.transform, "Btn_Start", "Start Game", new Vector2(0.5f, 0.5f), new Vector2(0f, -10f), new Vector2(240f, 54f), solidSprite, uiMgr.OnClickStart);
-            Button menuSoundBtn = CreateButton(menu.transform, "Btn_Sound_Menu", "Sound: ON", new Vector2(0.5f, 0.5f), new Vector2(0f, -82f), new Vector2(240f, 46f), solidSprite, uiMgr.OnClickToggleSound);
+            Button startBtn = CreateButton(menu.transform, "Btn_Start", "Start Game", new Vector2(0.5f, 0.5f), new Vector2(0f, -10f), new Vector2(240f, 54f), solidSprite);
+            Button menuSoundBtn = CreateIconButton(menu.transform, "Btn_Sound_Menu", new Vector2(0.5f, 0.5f), new Vector2(0f, -86f), new Vector2(52f, 52f), soundOnSprite);
 
             // 3. Panel_Loading
             GameObject loading = CreatePanel(canvas.transform, "Panel_Loading", Vector2.zero, Vector2.one, new Color(0.04f, 0.07f, 0.13f, 0.95f), solidSprite);
@@ -508,21 +564,20 @@ namespace LetsDash.Editor
             // 5. Panel_Pause
             GameObject pausePanel = CreatePanel(canvas.transform, "Panel_Pause", Vector2.zero, Vector2.one, new Color(0.04f, 0.07f, 0.13f, 0.88f), solidSprite);
             CreateTMP(pausePanel.transform, "Title_Pause", "PAUSED", 48, new Vector2(0.5f, 0.5f), new Vector2(0f, 130f), new Vector2(400f, 70f));
-            CreateButton(pausePanel.transform, "Btn_Resume", "Resume", new Vector2(0.5f, 0.5f), new Vector2(0f, 40f), new Vector2(220f, 48f), solidSprite, uiMgr.OnClickResume);
-            CreateButton(pausePanel.transform, "Btn_Restart_Pause", "Restart", new Vector2(0.5f, 0.5f), new Vector2(0f, -20f), new Vector2(220f, 48f), solidSprite, uiMgr.OnClickRestart);
-            CreateButton(pausePanel.transform, "Btn_Menu_Pause", "Back to Menu", new Vector2(0.5f, 0.5f), new Vector2(0f, -80f), new Vector2(220f, 48f), solidSprite, uiMgr.OnClickBackToMenu);
-            Button pauseSoundBtn = CreateButton(pausePanel.transform, "Btn_Sound_Pause", "Sound: ON", new Vector2(0.5f, 0.5f), new Vector2(0f, -140f), new Vector2(220f, 44f), solidSprite, uiMgr.OnClickToggleSound);
+            Button resumeBtn = CreateButton(pausePanel.transform, "Btn_Resume", "Resume", new Vector2(0.5f, 0.5f), new Vector2(0f, 40f), new Vector2(220f, 48f), solidSprite);
+            Button restartPauseBtn = CreateButton(pausePanel.transform, "Btn_Restart_Pause", "Restart", new Vector2(0.5f, 0.5f), new Vector2(0f, -20f), new Vector2(220f, 48f), solidSprite);
+            Button menuPauseBtn = CreateButton(pausePanel.transform, "Btn_Menu_Pause", "Back to Menu", new Vector2(0.5f, 0.5f), new Vector2(0f, -80f), new Vector2(220f, 48f), solidSprite);
+            Button pauseSoundBtn = CreateIconButton(pausePanel.transform, "Btn_Sound_Pause", new Vector2(0.5f, 0.5f), new Vector2(0f, -148f), new Vector2(52f, 52f), soundOnSprite);
 
             // 6. Panel_EndGame
             GameObject endPanel = CreatePanel(canvas.transform, "Panel_EndGame", Vector2.zero, Vector2.one, new Color(0.04f, 0.07f, 0.13f, 0.92f), solidSprite);
             TMP_Text endTitle = CreateTMP(endPanel.transform, "Text_EndGameTitle", "GAME OVER", 44, new Vector2(0.5f, 0.5f), new Vector2(0f, 90f), new Vector2(760f, 80f));
-            CreateButton(endPanel.transform, "Btn_Restart_End", "Restart", new Vector2(0.5f, 0.5f), new Vector2(0f, -10f), new Vector2(220f, 50f), solidSprite, uiMgr.OnClickRestart);
-            CreateButton(endPanel.transform, "Btn_Menu_End", "Back to Menu", new Vector2(0.5f, 0.5f), new Vector2(0f, -72f), new Vector2(220f, 50f), solidSprite, uiMgr.OnClickBackToMenu);
+            Button restartEndBtn = CreateButton(endPanel.transform, "Btn_Restart_End", "Restart", new Vector2(0.5f, 0.5f), new Vector2(0f, -10f), new Vector2(220f, 50f), solidSprite);
+            Button menuEndBtn = CreateButton(endPanel.transform, "Btn_Menu_End", "Back to Menu", new Vector2(0.5f, 0.5f), new Vector2(0f, -72f), new Vector2(220f, 50f), solidSprite);
 
             SerializedObject uiSo = new SerializedObject(uiMgr);
             uiSo.FindProperty("panelMenu").objectReferenceValue = menu;
             uiSo.FindProperty("panelLoading").objectReferenceValue = loading;
-            uiSo.FindProperty("textCountdownObj").objectReferenceValue = countdownObj;
             uiSo.FindProperty("hudGameplay").objectReferenceValue = hud;
             uiSo.FindProperty("panelPause").objectReferenceValue = pausePanel;
             uiSo.FindProperty("panelEndGame").objectReferenceValue = endPanel;
@@ -530,13 +585,17 @@ namespace LetsDash.Editor
             uiSo.FindProperty("textCountdown").objectReferenceValue = countdownText;
             uiSo.FindProperty("textSurvivalTimer").objectReferenceValue = timerText;
             uiSo.FindProperty("textEndGameTitle").objectReferenceValue = endTitle;
-            uiSo.FindProperty("pauseButton").objectReferenceValue = pauseBtn;
 
-            SerializedProperty soundLabels = uiSo.FindProperty("soundToggleLabels");
-            soundLabels.arraySize = 3;
-            soundLabels.GetArrayElementAtIndex(0).objectReferenceValue = menuSoundBtn.GetComponentInChildren<TMP_Text>();
-            soundLabels.GetArrayElementAtIndex(1).objectReferenceValue = hudSoundBtn.GetComponentInChildren<TMP_Text>();
-            soundLabels.GetArrayElementAtIndex(2).objectReferenceValue = pauseSoundBtn.GetComponentInChildren<TMP_Text>();
+            uiSo.FindProperty("startButton").objectReferenceValue = startBtn;
+            uiSo.FindProperty("pauseButton").objectReferenceValue = pauseBtn;
+            uiSo.FindProperty("resumeButton").objectReferenceValue = resumeBtn;
+
+            AssignButtonArray(uiSo.FindProperty("restartButtons"), restartPauseBtn, restartEndBtn);
+            AssignButtonArray(uiSo.FindProperty("backToMenuButtons"), menuPauseBtn, menuEndBtn);
+            AssignButtonArray(uiSo.FindProperty("soundToggleButtons"), menuSoundBtn, hudSoundBtn, pauseSoundBtn);
+
+            uiSo.FindProperty("soundOnSprite").objectReferenceValue = soundOnSprite;
+            uiSo.FindProperty("soundOffSprite").objectReferenceValue = soundOffSprite;
             uiSo.ApplyModifiedProperties();
 
             loading.SetActive(false);
@@ -544,6 +603,15 @@ namespace LetsDash.Editor
             hud.SetActive(false);
             pausePanel.SetActive(false);
             endPanel.SetActive(false);
+        }
+
+        private static void AssignButtonArray(SerializedProperty prop, params Button[] buttons)
+        {
+            prop.arraySize = buttons.Length;
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                prop.GetArrayElementAtIndex(i).objectReferenceValue = buttons[i];
+            }
         }
 
         private static GameObject CreatePanel(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax, Color color, Sprite sprite)
@@ -564,7 +632,7 @@ namespace LetsDash.Editor
 
         private static void CreateHealthBar(Transform parent, string name, int entityID, Vector2 anchorMin, Vector2 anchorMax, Vector2 pos, Vector2 size, Color fillColor, Sprite sprite)
         {
-            GameObject root = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(DynamicHealthBarUI));
+            GameObject root = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Slider), typeof(DynamicHealthBarUI));
             root.transform.SetParent(parent, false);
             RectTransform rt = root.GetComponent<RectTransform>();
             rt.anchorMin = anchorMin;
@@ -575,27 +643,40 @@ namespace LetsDash.Editor
             bg.sprite = sprite;
             bg.color = new Color(0.08f, 0.11f, 0.18f, 0.9f);
 
+            GameObject fillArea = new GameObject("Fill Area", typeof(RectTransform));
+            fillArea.transform.SetParent(root.transform, false);
+            RectTransform fillAreaRt = fillArea.GetComponent<RectTransform>();
+            fillAreaRt.anchorMin = Vector2.zero;
+            fillAreaRt.anchorMax = Vector2.one;
+            fillAreaRt.offsetMin = new Vector2(2f, 2f);
+            fillAreaRt.offsetMax = new Vector2(-2f, -2f);
+
             GameObject fillGo = new GameObject("Fill", typeof(RectTransform), typeof(Image));
-            fillGo.transform.SetParent(root.transform, false);
+            fillGo.transform.SetParent(fillArea.transform, false);
             RectTransform fillRt = fillGo.GetComponent<RectTransform>();
             fillRt.anchorMin = Vector2.zero;
             fillRt.anchorMax = Vector2.one;
-            fillRt.offsetMin = new Vector2(2f, 2f);
-            fillRt.offsetMax = new Vector2(-2f, -2f);
+            fillRt.offsetMin = Vector2.zero;
+            fillRt.offsetMax = Vector2.zero;
             Image fillImg = fillGo.GetComponent<Image>();
             fillImg.sprite = sprite;
             fillImg.color = fillColor;
-            fillImg.type = Image.Type.Filled;
-            fillImg.fillMethod = Image.FillMethod.Horizontal;
-            fillImg.fillOrigin = 0;
-            fillImg.fillAmount = 1f;
+            fillImg.type = Image.Type.Sliced;
+
+            Slider slider = root.GetComponent<Slider>();
+            slider.interactable = false;
+            slider.transition = Selectable.Transition.None;
+            slider.fillRect = fillRt;
+            slider.minValue = 0f;
+            slider.maxValue = 1f;
+            slider.value = 1f;
 
             TMP_Text hpText = CreateTMP(root.transform, "HP_Text", "250 / 250", 16, new Vector2(0.5f, 0.5f), Vector2.zero, size);
 
             DynamicHealthBarUI bar = root.GetComponent<DynamicHealthBarUI>();
             SerializedObject so = new SerializedObject(bar);
             so.FindProperty("targetEntityID").intValue = entityID;
-            so.FindProperty("fillImage").objectReferenceValue = fillImg;
+            so.FindProperty("hpSlider").objectReferenceValue = slider;
             so.FindProperty("hpValueText").objectReferenceValue = hpText;
             so.ApplyModifiedProperties();
         }
@@ -658,7 +739,7 @@ namespace LetsDash.Editor
             return tmp;
         }
 
-        private static Button CreateButton(Transform parent, string name, string label, Vector2 anchor, Vector2 pos, Vector2 size, Sprite sprite, UnityAction handler)
+        private static Button CreateButton(Transform parent, string name, string label, Vector2 anchor, Vector2 pos, Vector2 size, Sprite sprite)
         {
             GameObject go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
             go.transform.SetParent(parent, false);
@@ -673,9 +754,24 @@ namespace LetsDash.Editor
 
             CreateTMP(go.transform, "Label", label, 18, new Vector2(0.5f, 0.5f), Vector2.zero, size);
 
-            Button btn = go.GetComponent<Button>();
-            UnityEventTools.AddPersistentListener(btn.onClick, handler);
-            return btn;
+            return go.GetComponent<Button>();
+        }
+
+        private static Button CreateIconButton(Transform parent, string name, Vector2 anchor, Vector2 pos, Vector2 size, Sprite iconSprite)
+        {
+            GameObject go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(parent, false);
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = anchor;
+            rt.anchorMax = anchor;
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+            Image img = go.GetComponent<Image>();
+            img.sprite = iconSprite;
+            img.color = Color.white;
+            img.preserveAspect = true;
+
+            return go.GetComponent<Button>();
         }
 
         private static Slider CreateLoadingSlider(Transform parent, Sprite sprite)

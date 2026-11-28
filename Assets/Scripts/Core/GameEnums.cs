@@ -40,10 +40,9 @@ namespace LetsDash.Core
     public enum WeaponUpgradeFlags
     {
         None = 0,
-        Spread2Way = 1 << 0,
-        Spread3Way = 1 << 1,
-        ParallelOffset = 1 << 2,
-        RapidFire = 1 << 3,
-        DamageUp = 1 << 4
+        SpreadPlusOne = 1 << 0, // Each stack adds +1 bullet spread angle
+        DoubleWay = 1 << 1,     // Each stack adds +1 parallel firing lane
+        RapidFire = 1 << 2,
+        DamageUp = 1 << 3
     }
 }

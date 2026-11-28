@@ -13,7 +13,7 @@ namespace LetsDash.Bullets
     public struct BulletPrefabConfig
     {
         public BulletVisualType visualType;
-        public GameObject prefab; // Must have ONLY SpriteRenderer + BoxCollider2D
+        public GameObject prefab; // Supports CircleCollider2D or BoxCollider2D (isTrigger = true)
         public int initialPoolSize;
         public float hitRadius;
         public float scale;
@@ -26,7 +26,6 @@ namespace LetsDash.Bullets
         [Header("Pool Configuration")]
         [SerializeField] private BulletPrefabConfig[] bulletConfigs;
         [SerializeField] private LayerMask wallBlockingMask;
-        [SerializeField] private Collider2D centerDividerCollider;
         [SerializeField] private Transform poolContainer;
 
         private readonly List<BulletData> bulletPool = new List<BulletData>(2700);
@@ -183,13 +182,6 @@ namespace LetsDash.Bullets
 
                 Vector2 nextPos = bullet.originPos + localOffset;
 
-                // Collider-based Wall_CenterDivider check (avoids hardcoded X or height values)
-                if (CrossesCenterDividerCollider(bullet.prevPos, nextPos, bullet.hitRadius))
-                {
-                    ReturnToPool(bullet);
-                    continue;
-                }
-
                 Vector2 delta = nextPos - bullet.prevPos;
                 float distance = delta.magnitude;
 
@@ -236,7 +228,7 @@ namespace LetsDash.Bullets
                             continue;
                         }
 
-                        // Hit Wall_CenterDivider or Arena Boundary
+                        // Hit Arena Boundary Wall
                         if (((1 << hit.collider.gameObject.layer) & wallBlockingMask) != 0)
                         {
                             ReturnToPool(bullet);
@@ -248,22 +240,6 @@ namespace LetsDash.Bullets
                 bullet.prevPos = nextPos;
                 bullet.visualObj.transform.position = nextPos;
             }
-        }
-
-        private bool CrossesCenterDividerCollider(Vector2 fromPos, Vector2 toPos, float hitRadius)
-        {
-            if (centerDividerCollider == null || !centerDividerCollider.enabled) return false;
-
-            Bounds b = centerDividerCollider.bounds;
-            float minX = b.min.x - hitRadius;
-            float maxX = b.max.x + hitRadius;
-            float minY = b.min.y - hitRadius;
-            float maxY = b.max.y + hitRadius;
-
-            if (Mathf.Max(fromPos.y, toPos.y) < minY || Mathf.Min(fromPos.y, toPos.y) > maxY) return false;
-            if ((fromPos.x < minX && toPos.x < minX) || (fromPos.x > maxX && toPos.x > maxX)) return false;
-
-            return true;
         }
 
         private static float DistancePointToSegmentSq(Vector2 p, Vector2 a, Vector2 b)

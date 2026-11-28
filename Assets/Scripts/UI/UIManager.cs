@@ -10,7 +10,6 @@ namespace LetsDash.UI
         [Header("UI Panels")]
         [SerializeField] private GameObject panelMenu;
         [SerializeField] private GameObject panelLoading;
-        [SerializeField] private GameObject textCountdownObj;
         [SerializeField] private GameObject hudGameplay;
         [SerializeField] private GameObject panelPause;
         [SerializeField] private GameObject panelEndGame;
@@ -20,8 +19,46 @@ namespace LetsDash.UI
         [SerializeField] private TMP_Text textCountdown;
         [SerializeField] private TMP_Text textSurvivalTimer;
         [SerializeField] private TMP_Text textEndGameTitle;
+
+        [Header("Buttons (Auto-Wired in Awake)")]
+        [SerializeField] private Button startButton;
         [SerializeField] private Button pauseButton;
-        [SerializeField] private TMP_Text[] soundToggleLabels;
+        [SerializeField] private Button resumeButton;
+        [SerializeField] private Button[] restartButtons;
+        [SerializeField] private Button[] backToMenuButtons;
+        [SerializeField] private Button[] soundToggleButtons;
+
+        [Header("Sound Icon Sprites")]
+        [SerializeField] private Sprite soundOnSprite;
+        [SerializeField] private Sprite soundOffSprite;
+
+        private void Awake()
+        {
+            if (startButton != null)
+            {
+                startButton.onClick.AddListener(() => GameManager.Instance?.StartGame());
+            }
+
+            if (pauseButton != null)
+            {
+                pauseButton.onClick.AddListener(() => GameManager.Instance?.TogglePause());
+            }
+
+            if (resumeButton != null)
+            {
+                resumeButton.onClick.AddListener(() => GameManager.Instance?.TogglePause());
+            }
+
+            BindButtonArray(restartButtons, () => GameManager.Instance?.RestartGame());
+            BindButtonArray(backToMenuButtons, () => GameManager.Instance?.BackToMenu());
+            BindButtonArray(soundToggleButtons, () => GameManager.Instance?.ToggleMute());
+        }
+
+        private void Start()
+        {
+            bool isMuted = GameManager.Instance != null ? GameManager.Instance.IsMuted : AudioListener.pause;
+            HandleMuteChanged(isMuted);
+        }
 
         private void OnEnable()
         {
@@ -45,7 +82,10 @@ namespace LetsDash.UI
         {
             SetActiveSafe(panelMenu, state == GameState.Menu);
             SetActiveSafe(panelLoading, state == GameState.Loading);
-            SetActiveSafe(textCountdownObj, state == GameState.Countdown);
+            if (textCountdown != null)
+            {
+                SetActiveSafe(textCountdown.gameObject, state == GameState.Countdown);
+            }
             SetActiveSafe(hudGameplay, state == GameState.Countdown || state == GameState.Playing || state == GameState.Paused);
             SetActiveSafe(panelPause, state == GameState.Paused);
             SetActiveSafe(panelEndGame, state == GameState.GameOver || state == GameState.Victory);
@@ -98,23 +138,35 @@ namespace LetsDash.UI
 
         private void HandleMuteChanged(bool isMuted)
         {
-            if (soundToggleLabels == null) return;
-            foreach (var label in soundToggleLabels)
+            if (soundToggleButtons == null) return;
+
+            Sprite targetSprite = isMuted ? soundOffSprite : soundOnSprite;
+            if (targetSprite == null) return;
+
+            for (int i = 0; i < soundToggleButtons.Length; i++)
             {
-                if (label != null)
+                Button btn = soundToggleButtons[i];
+                if (btn == null) continue;
+
+                Image iconImage = btn.image != null ? btn.image : btn.GetComponent<Image>();
+                if (iconImage != null)
                 {
-                    label.text = isMuted ? "Sound: OFF" : "Sound: ON";
+                    iconImage.sprite = targetSprite;
                 }
             }
         }
 
-        // Hooked to UI Buttons in Inspector
-        public void OnClickStart() => GameManager.Instance?.StartGame();
-        public void OnClickPause() => GameManager.Instance?.TogglePause();
-        public void OnClickResume() => GameManager.Instance?.TogglePause();
-        public void OnClickRestart() => GameManager.Instance?.RestartGame();
-        public void OnClickBackToMenu() => GameManager.Instance?.BackToMenu();
-        public void OnClickToggleSound() => GameManager.Instance?.ToggleMute();
+        private static void BindButtonArray(Button[] buttons, UnityEngine.Events.UnityAction action)
+        {
+            if (buttons == null) return;
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                if (buttons[i] != null)
+                {
+                    buttons[i].onClick.AddListener(action);
+                }
+            }
+        }
 
         private static void SetActiveSafe(GameObject obj, bool active)
         {

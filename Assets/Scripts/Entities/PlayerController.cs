@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using LetsDash.Core;
@@ -9,7 +10,6 @@ using LetsDash.Audio;
 
 namespace LetsDash.Entities
 {
-    [RequireComponent(typeof(Rigidbody2D), typeof(BoxCollider2D), typeof(HitboxRelay))]
     public class PlayerController : MonoBehaviour, IDamageableEntity
     {
         [Header("Identity & Partner")]
@@ -32,10 +32,17 @@ namespace LetsDash.Entities
         [SerializeField] private LayerMask bossLayerMask;
         [SerializeField] private WeaponUpgradeFlags activeUpgrades = WeaponUpgradeFlags.None;
 
+        [Header("Damage Flash")]
+        [SerializeField] private Color damageFlashColor = new Color(1f, 0.25f, 0.25f, 1f);
+        [SerializeField] private float damageFlashDuration = 0.1f;
+
         private float reviveInvulnTimer;
         private float fireTimer;
         private bool isInvulnerable;
         private Rigidbody2D rb;
+        private SpriteRenderer[] cachedSpriteRenderers;
+        private Color[] originalSpriteColors;
+        private Coroutine damageFlashCoroutine;
 
         private readonly Dictionary<WeaponUpgradeFlags, int> upgradeStacks = new Dictionary<WeaponUpgradeFlags, int>();
 
@@ -56,11 +63,28 @@ namespace LetsDash.Entities
 
         private void Awake()
         {
+            // Enforce strict Player 0 (Left) / Player 1 (Right) identity from GameObject name
+            if (gameObject.name.IndexOf("Right", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                playerID = 1;
+            }
+            else if (gameObject.name.IndexOf("Left", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                playerID = 0;
+            }
+
             currentHP = maxHP;
             rb = GetComponent<Rigidbody2D>();
             if (firePivot == null)
             {
                 firePivot = transform;
+            }
+
+            cachedSpriteRenderers = GetComponentsInChildren<SpriteRenderer>(true);
+            originalSpriteColors = new Color[cachedSpriteRenderers.Length];
+            for (int i = 0; i < cachedSpriteRenderers.Length; i++)
+            {
+                originalSpriteColors[i] = cachedSpriteRenderers[i].color;
             }
 
             // Seed stack counts if any flags were pre-enabled in the Inspector
@@ -98,6 +122,7 @@ namespace LetsDash.Entities
 
             if (playerID == 0)
             {
+                // Player 0 (Left): strictly W, A, S, D only
                 if (Input.GetKeyDown(KeyCode.W)) ModuloLcgRandom.FeedInput(1);
                 if (Input.GetKeyDown(KeyCode.A)) ModuloLcgRandom.FeedInput(2);
                 if (Input.GetKeyDown(KeyCode.S)) ModuloLcgRandom.FeedInput(3);
@@ -110,6 +135,7 @@ namespace LetsDash.Entities
             }
             else
             {
+                // Player 1 (Right): strictly Arrow Keys only
                 if (Input.GetKeyDown(KeyCode.UpArrow)) ModuloLcgRandom.FeedInput(5);
                 if (Input.GetKeyDown(KeyCode.LeftArrow)) ModuloLcgRandom.FeedInput(6);
                 if (Input.GetKeyDown(KeyCode.DownArrow)) ModuloLcgRandom.FeedInput(7);
@@ -136,7 +162,7 @@ namespace LetsDash.Entities
 
             if (rb != null)
             {
-                // Let 4-sided Wall BoxCollider2Ds & Wall_CenterDivider constrain movement via Physics2D
+                // Outer 4-sided Wall_Boundaries BoxCollider2Ds constrain movement across the shared arena
                 rb.linearVelocity = velocity;
             }
             else
@@ -151,7 +177,7 @@ namespace LetsDash.Entities
 
             int rapidStacks = GetUpgradeStack(WeaponUpgradeFlags.RapidFire);
             int damageStacks = GetUpgradeStack(WeaponUpgradeFlags.DamageUp);
-            int parallelStacks = GetUpgradeStack(WeaponUpgradeFlags.ParallelOffset);
+            int doubleWayStacks = GetUpgradeStack(WeaponUpgradeFlags.DoubleWay);
 
             // Pure functional rate and damage modifiers (stackable)
             Func<float, float> rateModifier = interval =>
@@ -164,12 +190,12 @@ namespace LetsDash.Entities
             if (fireTimer < rateModifier(baseFireInterval)) return;
             fireTimer = 0f;
 
-            // Pure function calculating symmetric X-axis parallel offsets from the SINGLE FirePivot (1..5 rails)
-            int parallelCount = Mathf.Min(5, 1 + parallelStacks);
+            // DoubleWay stacks add +1 parallel firing lane per stack from the SINGLE FirePivot
+            int parallelCount = 1 + doubleWayStacks;
             Func<int, float> getParallelOffsetX = index =>
                 (index - (parallelCount - 1) * 0.5f) * parallelOffsetDistance;
 
-            // Pure function calculating spread angles centered on 90 deg upward
+            // SpreadPlusOne stacks add +1 spread direction per stack centered on 90 deg upward
             float[] spreadAngles = BuildSpreadAngles();
             float finalDamage = damageModifier(baseDamage);
 
@@ -199,16 +225,15 @@ namespace LetsDash.Entities
 
         private float[] BuildSpreadAngles()
         {
-            int spread2Stacks = GetUpgradeStack(WeaponUpgradeFlags.Spread2Way);
-            int spread3Stacks = GetUpgradeStack(WeaponUpgradeFlags.Spread3Way);
-            int totalWays = Mathf.Min(9, 1 + spread2Stacks + spread3Stacks * 2);
+            int spreadStacks = GetUpgradeStack(WeaponUpgradeFlags.SpreadPlusOne);
+            int totalWays = 1 + spreadStacks;
 
             if (totalWays <= 1)
             {
                 return new[] { 90f };
             }
 
-            float halfSpan = Mathf.Min(38f, (totalWays - 1) * 9f);
+            float halfSpan = Mathf.Min(42f, (totalWays - 1) * 8f);
             float[] angles = new float[totalWays];
             for (int i = 0; i < totalWays; i++)
             {
@@ -240,18 +265,29 @@ namespace LetsDash.Entities
             AudioAndVFXManager.Instance?.PlayPickupSFX();
         }
 
+        private void OnDisable()
+        {
+            if (damageFlashCoroutine != null)
+            {
+                StopCoroutine(damageFlashCoroutine);
+                damageFlashCoroutine = null;
+            }
+            RestoreOriginalSpriteColors();
+        }
+
         public void TakeDamage(float amount)
         {
             if (isInvulnerable || currentHP <= 0f) return;
 
             currentHP = Mathf.Max(0f, currentHP - amount);
+            TriggerDamageFlash();
             AudioAndVFXManager.Instance?.PlayHitSFX();
 
             if (currentHP <= 0f)
             {
                 if (extraLives > 0)
                 {
-                    // Extra Life Revive: restore full HP and grant 3s temporary invulnerability
+                    // Extra Life Revive (VFX #4): restore full HP and grant 3s temporary invulnerability
                     extraLives--;
                     currentHP = maxHP;
                     reviveInvulnTimer = reviveInvulnerabilityDuration;
@@ -259,17 +295,65 @@ namespace LetsDash.Entities
 
                     OnExtraLivesChanged?.Invoke(playerID, extraLives);
                     HealthObserver.NotifyHealthChanged(playerID, currentHP, maxHP);
-                    AudioAndVFXManager.Instance?.SpawnPickupVFX(transform.position);
+                    AudioAndVFXManager.Instance?.SpawnReviveVFX(transform.position);
                     return;
                 }
 
+                // Dual Player Death (VFX #5): play simultaneously at BOTH Player_Left and Player_Right
                 HealthObserver.NotifyHealthChanged(playerID, 0f, maxHP);
-                AudioAndVFXManager.Instance?.SpawnExplosionVFX(transform.position);
+                AudioAndVFXManager.Instance?.SpawnDualDeathVFX(transform.position);
+                if (partnerPlayer != null)
+                {
+                    AudioAndVFXManager.Instance?.SpawnDualDeathVFX(partnerPlayer.transform.position);
+                }
                 GameManager.Instance?.OnEntityDied(playerID);
                 return;
             }
 
             HealthObserver.NotifyHealthChanged(playerID, currentHP, maxHP);
+        }
+
+        private void TriggerDamageFlash()
+        {
+            if (cachedSpriteRenderers == null || cachedSpriteRenderers.Length == 0) return;
+            if (!gameObject.activeInHierarchy) return;
+
+            if (damageFlashCoroutine != null)
+            {
+                StopCoroutine(damageFlashCoroutine);
+                RestoreOriginalSpriteColors();
+            }
+
+            damageFlashCoroutine = StartCoroutine(FlashDamageRedCoroutine());
+        }
+
+        private IEnumerator FlashDamageRedCoroutine()
+        {
+            for (int i = 0; i < cachedSpriteRenderers.Length; i++)
+            {
+                if (cachedSpriteRenderers[i] != null)
+                {
+                    cachedSpriteRenderers[i].color = damageFlashColor;
+                }
+            }
+
+            yield return new WaitForSeconds(damageFlashDuration);
+
+            RestoreOriginalSpriteColors();
+            damageFlashCoroutine = null;
+        }
+
+        private void RestoreOriginalSpriteColors()
+        {
+            if (cachedSpriteRenderers == null || originalSpriteColors == null) return;
+            int count = Mathf.Min(cachedSpriteRenderers.Length, originalSpriteColors.Length);
+            for (int i = 0; i < count; i++)
+            {
+                if (cachedSpriteRenderers[i] != null)
+                {
+                    cachedSpriteRenderers[i].color = originalSpriteColors[i];
+                }
+            }
         }
     }
 }

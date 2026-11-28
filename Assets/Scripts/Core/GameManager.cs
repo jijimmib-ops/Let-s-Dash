@@ -19,12 +19,13 @@ namespace LetsDash.Core
         private float survivalTimeRemaining;
         private float countdownTimer;
         private bool isMuted;
+        private bool isEndingGame;
 
         public GameState CurrentState => currentState;
         public float SurvivalTimeRemaining => survivalTimeRemaining;
         public float CountdownTimer => countdownTimer;
         public bool IsMuted => isMuted;
-        public bool IsPauseLocked => currentState == GameState.Countdown || currentState == GameState.Loading || currentState == GameState.Menu;
+        public bool IsPauseLocked => currentState == GameState.Countdown || currentState == GameState.Loading || currentState == GameState.Menu || isEndingGame;
 
         public static event Action<GameState> OnGameStateChanged;
         public static event Action<float> OnLoadingProgressChanged;
@@ -74,12 +75,15 @@ namespace LetsDash.Core
             switch (currentState)
             {
                 case GameState.Menu:
+                    isEndingGame = false;
                     Time.timeScale = 1f;
                     break;
                 case GameState.Loading:
+                    isEndingGame = false;
                     Time.timeScale = 1f;
                     break;
                 case GameState.Countdown:
+                    isEndingGame = false;
                     Time.timeScale = 1f;
                     countdownTimer = countdownDuration;
                     survivalTimeRemaining = totalSurvivalDuration;
@@ -87,6 +91,7 @@ namespace LetsDash.Core
                     OnSurvivalTimerTick?.Invoke(survivalTimeRemaining);
                     break;
                 case GameState.Playing:
+                    isEndingGame = false;
                     Time.timeScale = 1f;
                     AudioAndVFXManager.Instance?.PlayBGM();
                     break;
@@ -144,7 +149,7 @@ namespace LetsDash.Core
                     ChangeState(GameState.Playing);
                 }
             }
-            else if (currentState == GameState.Playing)
+            else if (currentState == GameState.Playing && !isEndingGame)
             {
                 survivalTimeRemaining -= Time.deltaTime;
                 OnSurvivalTimerTick?.Invoke(Mathf.Max(0f, survivalTimeRemaining));
@@ -159,6 +164,8 @@ namespace LetsDash.Core
 
         public void TogglePause()
         {
+            if (isEndingGame) return;
+
             // Pause is explicitly locked during Countdown, Loading, Menu, and End states
             if (currentState == GameState.Playing)
             {
@@ -179,6 +186,7 @@ namespace LetsDash.Core
 
         public void RestartGame()
         {
+            isEndingGame = false;
             Time.timeScale = 1f;
             BulletPoolManager.Instance?.DeactivateAllBullets();
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
@@ -186,6 +194,7 @@ namespace LetsDash.Core
 
         public void BackToMenu()
         {
+            isEndingGame = false;
             Time.timeScale = 1f;
             BulletPoolManager.Instance?.DeactivateAllBullets();
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
@@ -193,17 +202,25 @@ namespace LetsDash.Core
 
         public void OnEntityDied(int entityID)
         {
-            if (currentState != GameState.Playing) return;
+            if (currentState != GameState.Playing || isEndingGame) return;
 
             // Entity 0 = Left Player, Entity 1 = Right Player, Entity 2 = Boss
             if (entityID == 0 || entityID == 1)
             {
-                ChangeState(GameState.GameOver);
+                isEndingGame = true;
+                StartCoroutine(TriggerDelayedGameOverCoroutine());
             }
             else if (entityID == 2)
             {
+                isEndingGame = true;
                 ChangeState(GameState.Victory);
             }
+        }
+
+        private IEnumerator TriggerDelayedGameOverCoroutine()
+        {
+            yield return new WaitForSecondsRealtime(1.0f);
+            ChangeState(GameState.GameOver);
         }
     }
 }
