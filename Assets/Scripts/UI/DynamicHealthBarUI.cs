@@ -10,8 +10,18 @@ namespace LetsDash.UI
         [SerializeField] private int targetEntityID = 0;
 
         [Header("UI Components")]
-        [SerializeField] private Image fillImage;
+        [SerializeField] private Slider hpSlider;
         [SerializeField] private TMP_Text hpValueText;
+
+        private void Awake()
+        {
+            if (hpSlider != null)
+            {
+                hpSlider.minValue = 0f;
+                hpSlider.maxValue = 1f;
+                hpSlider.interactable = false;
+            }
+        }
 
         private void OnEnable()
         {
@@ -29,14 +39,14 @@ namespace LetsDash.UI
 
             float ratio = maxHP > 0f ? Mathf.Clamp01(currentHP / maxHP) : 0f;
 
-            if (fillImage != null)
+            if (hpSlider != null)
             {
-                fillImage.fillAmount = ratio;
+                hpSlider.value = ratio;
             }
 
             if (hpValueText != null)
             {
-                hpValueText.text = $"{Mathf.CeilToInt(currentHP)} / {Mathf.CeilToInt(maxHP)}";
+                hpValueText.text = $"{Mathf.CeilToInt(currentHP)}";
             }
         }
     }

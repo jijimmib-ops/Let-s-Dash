@@ -12,12 +12,12 @@ TagManager:
   - Water
   - UI
   - PlayerBody
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
+  - PlayerRight
+  - Walls
+  - PlayerLeft
+  - Boss
+  - PowerUpCrate
+  - LinkViusal
   - 
   - 
   - 

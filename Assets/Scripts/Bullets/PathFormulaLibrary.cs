@@ -9,10 +9,13 @@ namespace LetsDash.Bullets
     {
         public static PathFormulaLibrary Instance { get; private set; }
 
-        // O(log n) Binary Search Tree lookup for Desmos-style parametric equations (x(t, a), y(t, a))
+        [Header("Deceleration Curve")]
+        [SerializeField] private float referenceLifetime = 6.5f;
+
+        // O(log n) Binary Search Tree lookup for all 5 BulletPathType trajectories (0..4)
         // Strict rule: Use ONLY Mathf.Cos and Mathf.Sin (NO Mathf.Tan to avoid asymptote infinities).
-        private SortedDictionary<PathPatternType, Func<float, float, Vector2>> formulaTree;
-        private List<PathPatternType> sortedKeys;
+        private SortedDictionary<BulletPathType, Func<float, float, Vector2>> formulaTree;
+        private List<BulletPathType> sortedKeys;
 
         private void Awake()
         {
@@ -25,7 +28,7 @@ namespace LetsDash.Bullets
             InitializeFormulas();
         }
 
-        public IReadOnlyList<PathPatternType> GetSortedPatternKeys()
+        public IReadOnlyList<BulletPathType> GetSortedPatternKeys()
         {
             if (formulaTree == null)
             {
@@ -34,150 +37,128 @@ namespace LetsDash.Bullets
 
             if (sortedKeys == null || sortedKeys.Count != formulaTree.Count)
             {
-                sortedKeys = new List<PathPatternType>(formulaTree.Keys);
+                sortedKeys = new List<BulletPathType>(formulaTree.Keys);
             }
 
             return sortedKeys;
         }
 
-        public void InitializeFormulas()
+        public bool IsEmptySpace(BulletPathType type)
         {
-            formulaTree = new SortedDictionary<PathPatternType, Func<float, float, Vector2>>
-            {
-                // 1. Linear Ray: Straight trajectory along angle a (in degrees)
-                [PathPatternType.LinearRay] = (t, angleA) =>
-                {
-                    float rad = angleA * Mathf.Deg2Rad;
-                    return new Vector2(Mathf.Cos(rad) * t, Mathf.Sin(rad) * t);
-                },
-
-                // 2. Rotated Sine Wave: u = t, v = 0.55 * sin(7t), rotated by angle a
-                [PathPatternType.SineWave] = (t, angleA) =>
-                {
-                    float rad = angleA * Mathf.Deg2Rad;
-                    float cosA = Mathf.Cos(rad);
-                    float sinA = Mathf.Sin(rad);
-                    float u = t;
-                    float v = 0.55f * Mathf.Sin(7f * t);
-                    return new Vector2(u * cosA - v * sinA, u * sinA + v * cosA);
-                },
-
-                // 3. Archimedean Spiral: r = t, theta = 3.2t + a
-                [PathPatternType.Spiral] = (t, angleA) =>
-                {
-                    float rad = angleA * Mathf.Deg2Rad;
-                    float theta = rad + 3.2f * t;
-                    float r = t;
-                    return new Vector2(r * Mathf.Cos(theta), r * Mathf.Sin(theta));
-                },
-
-                // 4. Curved Arc: Smooth trigonometric drift curving away from initial ray
-                [PathPatternType.CurvedArc] = (t, angleA) =>
-                {
-                    float rad = angleA * Mathf.Deg2Rad;
-                    float drift = 0.45f * (1f - Mathf.Cos(2.2f * t));
-                    float cosA = Mathf.Cos(rad);
-                    float sinA = Mathf.Sin(rad);
-                    float u = t;
-                    float v = drift * Mathf.Sin(rad >= 0f ? 1.570796f : -1.570796f);
-                    return new Vector2(u * cosA - v * sinA, u * sinA + v * cosA);
-                },
-
-                // 5. Touhou Rose Curve: r = (0.65 + 0.35 * cos(5 * theta)) * t
-                [PathPatternType.RoseCurve] = (t, angleA) =>
-                {
-                    float rad = angleA * Mathf.Deg2Rad;
-                    float theta = rad + 1.4f * t;
-                    float r = (0.65f + 0.35f * Mathf.Cos(5f * theta)) * t;
-                    return new Vector2(r * Mathf.Cos(theta), r * Mathf.Sin(theta));
-                },
-
-                // 6. Logarithmic Spiral: r = t, theta = a + 2.5 * ln(1 + 2t)
-                [PathPatternType.LogarithmicSpiral] = (t, angleA) =>
-                {
-                    float rad = angleA * Mathf.Deg2Rad;
-                    float theta = rad + 2.5f * Mathf.Log(1f + 2f * t);
-                    return new Vector2(t * Mathf.Cos(theta), t * Mathf.Sin(theta));
-                },
-
-                // 7. Damped Wave: u = t, v = 0.8 * exp(-1.5t) * sin(10t), rotated by angle a
-                [PathPatternType.DampedWave] = (t, angleA) =>
-                {
-                    float rad = angleA * Mathf.Deg2Rad;
-                    float cosA = Mathf.Cos(rad);
-                    float sinA = Mathf.Sin(rad);
-                    float u = t;
-                    float v = 0.8f * Mathf.Exp(-1.5f * t) * Mathf.Sin(10f * t);
-                    return new Vector2(u * cosA - v * sinA, u * sinA + v * cosA);
-                },
-
-                // 8. Expanding Helix / Coil: u = t + 0.25*cos(12t), v = 0.25*sin(12t)
-                [PathPatternType.ExpandingHelix] = (t, angleA) =>
-                {
-                    float rad = angleA * Mathf.Deg2Rad;
-                    float cosA = Mathf.Cos(rad);
-                    float sinA = Mathf.Sin(rad);
-                    float u = t + 0.25f * Mathf.Cos(12f * t);
-                    float v = 0.25f * Mathf.Sin(12f * t);
-                    return new Vector2(u * cosA - v * sinA, u * sinA + v * cosA);
-                },
-
-                // 9. Zig-Zag / Sawtooth Wave: u = t, v = 0.4 * arcsin(sin(6t))
-                [PathPatternType.ZigZagWave] = (t, angleA) =>
-                {
-                    float rad = angleA * Mathf.Deg2Rad;
-                    float cosA = Mathf.Cos(rad);
-                    float sinA = Mathf.Sin(rad);
-                    float u = t;
-                    float v = 0.4f * Mathf.Asin(Mathf.Clamp(Mathf.Sin(6f * t), -1f, 1f));
-                    return new Vector2(u * cosA - v * sinA, u * sinA + v * cosA);
-                },
-
-                // 10. Heart / Cardioid Burst: r = t * (1 - 0.5 * sin(a))
-                [PathPatternType.HeartBurst] = (t, angleA) =>
-                {
-                    float rad = angleA * Mathf.Deg2Rad;
-                    float r = t * (1f - 0.5f * Mathf.Sin(rad));
-                    return new Vector2(r * Mathf.Cos(rad), r * Mathf.Sin(rad));
-                },
-
-                // 11. Starburst Polygon (5-point): r = t / cos((2/5) * arcsin(sin((5/2) * (a + t))))
-                [PathPatternType.StarburstPolygon] = (t, angleA) =>
-                {
-                    float rad = angleA * Mathf.Deg2Rad;
-                    float theta = rad + t;
-                    float s = Mathf.Clamp(Mathf.Sin(2.5f * theta), -1f, 1f);
-                    float denom = Mathf.Max(0.1f, Mathf.Cos(0.4f * Mathf.Asin(s)));
-                    float r = t / denom;
-                    return new Vector2(r * Mathf.Cos(theta), r * Mathf.Sin(theta));
-                },
-
-                // 12. Boomerang / Hook: u = t - 0.6*t^2, v = 0.8*sin(2.5t)
-                [PathPatternType.BoomerangHook] = (t, angleA) =>
-                {
-                    float rad = angleA * Mathf.Deg2Rad;
-                    float cosA = Mathf.Cos(rad);
-                    float sinA = Mathf.Sin(rad);
-                    float u = t - 0.6f * t * t;
-                    float v = 0.8f * Mathf.Sin(2.5f * t);
-                    return new Vector2(u * cosA - v * sinA, u * sinA + v * cosA);
-                }
-            };
+            return type == BulletPathType.Space;
         }
 
-        public Vector2 EvaluatePosition(PathPatternType type, float t, float angleA)
+        public bool TryGetFormula(BulletPathType type, out Func<float, float, Vector2> formula)
         {
             if (formulaTree == null)
             {
                 InitializeFormulas();
             }
 
-            if (formulaTree.TryGetValue(type, out var formula))
+            return formulaTree.TryGetValue(type, out formula);
+        }
+
+        /// <summary>
+        /// Applies a fast-to-slow ease-out deceleration curve over normalized bullet lifetime
+        /// so projectiles burst out rapidly and slow down for fair dodging.
+        /// </summary>
+        public float ApplyDecelerationCurve(float t, float lifetime)
+        {
+            float safeLifetime = Mathf.Max(0.1f, lifetime);
+            float normalizedT = Mathf.Clamp01(t / safeLifetime);
+            float eased = 1f - Mathf.Pow(1f - normalizedT, 3f);
+            float extraDrift = Mathf.Max(0f, t - safeLifetime) * 0.12f;
+            return safeLifetime * 0.68f * eased + extraDrift;
+        }
+
+        public void InitializeFormulas()
+        {
+            formulaTree = new SortedDictionary<BulletPathType, Func<float, float, Vector2>>
+            {
+                // 0. LinearRay: Fast-to-slow straight trajectory along angle a (degrees)
+                [BulletPathType.LinearRay] = (t, angleA) =>
+                {
+                    float d = ApplyDecelerationCurve(t, referenceLifetime);
+                    float rad = angleA * Mathf.Deg2Rad;
+                    return new Vector2(Mathf.Cos(rad) * d, Mathf.Sin(rad) * d);
+                },
+
+                // 1. HeartCardioidBurst: Fast-to-slow cardioid burst r = d * (1 - 0.5 * sin(a))
+                [BulletPathType.HeartCardioidBurst] = (t, angleA) =>
+                {
+                    float d = ApplyDecelerationCurve(t, referenceLifetime);
+                    float rad = angleA * Mathf.Deg2Rad;
+                    float r = d * (1f - 0.5f * Mathf.Sin(rad));
+                    return new Vector2(r * Mathf.Cos(rad), r * Mathf.Sin(rad));
+                },
+
+                // 2. CurvedArc: Fast-to-slow smooth trigonometric drift curving away from initial ray
+                [BulletPathType.CurvedArc] = (t, angleA) =>
+                {
+                    float d = ApplyDecelerationCurve(t, referenceLifetime);
+                    float rad = angleA * Mathf.Deg2Rad;
+                    float cosA = Mathf.Cos(rad);
+                    float sinA = Mathf.Sin(rad);
+                    float drift = 0.45f * (1f - Mathf.Cos(2.2f * d));
+                    float u = d;
+                    float v = drift * (rad >= 0f ? 1f : -1f);
+                    return new Vector2(u * cosA - v * sinA, u * sinA + v * cosA);
+                },
+
+                // 3. ArchimedeanSpiral: Fast-to-slow spiral r = d, theta = a + 3.2 * d
+                [BulletPathType.ArchimedeanSpiral] = (t, angleA) =>
+                {
+                    float d = ApplyDecelerationCurve(t, referenceLifetime);
+                    float rad = angleA * Mathf.Deg2Rad;
+                    float theta = rad + 3.2f * d;
+                    return new Vector2(d * Mathf.Cos(theta), d * Mathf.Sin(theta));
+                },
+
+                // 4. Space: Intentional rest/breather beat (no-op trajectory)
+                [BulletPathType.Space] = (t, angleA) => Vector2.zero
+            };
+        }
+
+        public Vector2 EvaluatePosition(BulletPathType type, float t, float angleA)
+        {
+            if (IsEmptySpace(type)) return Vector2.zero;
+
+            if (TryGetFormula(type, out var formula) && formula != null)
             {
                 return formula(t, angleA);
             }
 
             return Vector2.zero;
+        }
+
+        // Adapter overload so BulletPoolManager works seamlessly with PathPatternType
+        public Vector2 EvaluatePosition(PathPatternType pattern, float t, float angleA)
+        {
+            return EvaluatePosition(MapFromLegacyPattern(pattern), t, angleA);
+        }
+
+        public static BulletPathType MapFromLegacyPattern(PathPatternType pattern)
+        {
+            return pattern switch
+            {
+                PathPatternType.LinearRay => BulletPathType.LinearRay,
+                PathPatternType.HeartBurst => BulletPathType.HeartCardioidBurst,
+                PathPatternType.CurvedArc => BulletPathType.CurvedArc,
+                PathPatternType.Spiral => BulletPathType.ArchimedeanSpiral,
+                _ => (BulletPathType)((int)pattern % 4)
+            };
+        }
+
+        public static PathPatternType MapToLegacyPattern(BulletPathType pathType)
+        {
+            return pathType switch
+            {
+                BulletPathType.LinearRay => PathPatternType.LinearRay,
+                BulletPathType.HeartCardioidBurst => PathPatternType.HeartBurst,
+                BulletPathType.CurvedArc => PathPatternType.CurvedArc,
+                BulletPathType.ArchimedeanSpiral => PathPatternType.Spiral,
+                _ => PathPatternType.LinearRay
+            };
         }
     }
 }

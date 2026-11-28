@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using LetsDash.Core;
 using LetsDash.Entities;
@@ -18,24 +19,51 @@ namespace LetsDash.Items
         [SerializeField] private GameObject cratePrefab;
         [SerializeField] private float spawnInterval = 15.0f;
 
-        [Header("5 Upgrade Art Variants (Optional)")]
+        [Header("Extensible Upgrade Art Variants (Optional)")]
         [SerializeField] private CrateUpgradeArtConfig[] upgradeArtConfigs;
 
         [Header("Spawn Area Colliders")]
         [SerializeField] private Collider2D leftSpawnArea;
         [SerializeField] private Collider2D rightSpawnArea;
 
+        private readonly List<WeaponUpgradeFlags> availableUpgrades = new List<WeaponUpgradeFlags>();
         private float spawnTimer;
         private bool spawnOnLeftNext = true;
 
-        private static readonly WeaponUpgradeFlags[] AvailableUpgrades =
+        private void Awake()
         {
-            WeaponUpgradeFlags.Spread2Way,
-            WeaponUpgradeFlags.Spread3Way,
-            WeaponUpgradeFlags.ParallelOffset,
-            WeaponUpgradeFlags.RapidFire,
-            WeaponUpgradeFlags.DamageUp
-        };
+            BuildAvailableUpgradesList();
+        }
+
+        private void BuildAvailableUpgradesList()
+        {
+            availableUpgrades.Clear();
+
+            // Prefer Inspector-configured upgradeArtConfigs when populated
+            if (upgradeArtConfigs != null)
+            {
+                for (int i = 0; i < upgradeArtConfigs.Length; i++)
+                {
+                    WeaponUpgradeFlags flag = upgradeArtConfigs[i].upgradeFlag;
+                    if (flag != WeaponUpgradeFlags.None && !availableUpgrades.Contains(flag))
+                    {
+                        availableUpgrades.Add(flag);
+                    }
+                }
+            }
+
+            // Fallback: dynamically discover all valid WeaponUpgradeFlags via Enum.GetValues
+            if (availableUpgrades.Count == 0)
+            {
+                foreach (WeaponUpgradeFlags flag in Enum.GetValues(typeof(WeaponUpgradeFlags)))
+                {
+                    if (flag != WeaponUpgradeFlags.None)
+                    {
+                        availableUpgrades.Add(flag);
+                    }
+                }
+            }
+        }
 
         private void Update()
         {
@@ -55,13 +83,14 @@ namespace LetsDash.Items
         private void SpawnCrate()
         {
             if (cratePrefab == null) return;
+            if (availableUpgrades.Count == 0) BuildAvailableUpgradesList();
+            if (availableUpgrades.Count == 0) return;
 
             Collider2D targetArea = spawnOnLeftNext ? leftSpawnArea : rightSpawnArea;
             spawnOnLeftNext = !spawnOnLeftNext;
 
             if (targetArea == null)
             {
-                Debug.LogWarning("[ParallelItemSpawner] Target spawn area Collider2D is not assigned. Skipping crate spawn.");
                 return;
             }
 
@@ -74,8 +103,8 @@ namespace LetsDash.Items
             );
             GameObject crateObj = Instantiate(cratePrefab, pos, Quaternion.identity, transform);
 
-            int upgradeIdx = ModuloLcgRandom.NextMod(AvailableUpgrades.Length);
-            WeaponUpgradeFlags selectedFlag = AvailableUpgrades[upgradeIdx];
+            int upgradeIdx = ModuloLcgRandom.NextMod(availableUpgrades.Count);
+            WeaponUpgradeFlags selectedFlag = availableUpgrades[upgradeIdx];
             Sprite artSprite = FindSpriteForUpgrade(selectedFlag);
 
             var crate = crateObj.GetComponent<PowerUpCrate>();

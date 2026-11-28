@@ -18,10 +18,12 @@ namespace LetsDash.Audio
         [SerializeField] private AudioClip hitClip;
         [SerializeField] private AudioClip pickupClip;
 
-        [Header("Pooled VFX Prefabs")]
-        [SerializeField] private GameObject impactVfxPrefab;
-        [SerializeField] private GameObject pickupVfxPrefab;
-        [SerializeField] private GameObject explosionVfxPrefab;
+        [Header("Pooled VFX Prefabs (5 Slots)")]
+        [SerializeField] private GameObject impactVfxPrefab;     // 1. Impact VFX
+        [SerializeField] private GameObject explosionVfxPrefab;  // 2. Player/Boss Explosion VFX
+        [SerializeField] private GameObject pickupVfxPrefab;     // 3. Pickup VFX
+        [SerializeField] private GameObject reviveVfxPrefab;     // 4. Extra Life Revive VFX
+        [SerializeField] private GameObject dualDeathVfxPrefab;  // 5. Dual Player Death VFX
         [SerializeField] private int vfxPoolSizePerType = 16;
 
         private readonly Dictionary<GameObject, List<GameObject>> vfxPools = new Dictionary<GameObject, List<GameObject>>();
@@ -39,8 +41,10 @@ namespace LetsDash.Audio
         public void PrewarmVFXPools()
         {
             PrewarmPrefab(impactVfxPrefab);
-            PrewarmPrefab(pickupVfxPrefab);
             PrewarmPrefab(explosionVfxPrefab);
+            PrewarmPrefab(pickupVfxPrefab);
+            PrewarmPrefab(reviveVfxPrefab);
+            PrewarmPrefab(dualDeathVfxPrefab);
         }
 
         private void PrewarmPrefab(GameObject prefab)
@@ -92,8 +96,10 @@ namespace LetsDash.Audio
         }
 
         public void SpawnImpactVFX(Vector2 pos) => SpawnVFX(impactVfxPrefab, pos, 0.35f);
-        public void SpawnPickupVFX(Vector2 pos) => SpawnVFX(pickupVfxPrefab, pos, 0.55f);
         public void SpawnExplosionVFX(Vector2 pos) => SpawnVFX(explosionVfxPrefab, pos, 0.9f);
+        public void SpawnPickupVFX(Vector2 pos) => SpawnVFX(pickupVfxPrefab, pos, 0.55f);
+        public void SpawnReviveVFX(Vector2 pos) => SpawnVFX(reviveVfxPrefab, pos, 0.85f);
+        public void SpawnDualDeathVFX(Vector2 pos) => SpawnVFX(dualDeathVfxPrefab, pos, 1.0f);
 
         private void SpawnVFX(GameObject prefab, Vector2 pos, float duration)
         {
@@ -118,7 +124,7 @@ namespace LetsDash.Audio
 
         private static IEnumerator ReturnVFXAfterDelay(GameObject vfx, float delay)
         {
-            yield return new WaitForSeconds(delay);
+            yield return new WaitForSecondsRealtime(delay);
             if (vfx != null)
             {
                 vfx.SetActive(false);

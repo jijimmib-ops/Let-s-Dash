@@ -1,0 +1,754 @@
+fileFormatVersion: 2
+guid: 21f799480196e7d45b571eef0536b2ad
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -1623729977164986684
+    second: mockup_bullet_0
+  - first:
+      213: 1315730048557130354
+    second: mockup_bullet_1
+  - first:
+      213: 5712774866264337359
+    second: mockup_bullet_2
+  - first:
+      213: 1692125314821244482
+    second: mockup_bullet_3
+  - first:
+      213: 8670448402292311649
+    second: mockup_bullet_4
+  - first:
+      213: -7592790796716603814
+    second: mockup_bullet_5
+  - first:
+      213: 5914388645542052913
+    second: mockup_bullet_6
+  - first:
+      213: -3367541090013235388
+    second: mockup_bullet_7
+  - first:
+      213: 7469481646791836946
+    second: mockup_bullet_8
+  - first:
+      213: -2696213040233389738
+    second: mockup_bullet_9
+  - first:
+      213: -988729245526404518
+    second: mockup_bullet_10
+  - first:
+      213: -7258257344204558521
+    second: mockup_bullet_11
+  - first:
+      213: -8550864256434919356
+    second: mockup_bullet_12
+  - first:
+      213: 1685838905272106778
+    second: mockup_bullet_13
+  - first:
+      213: -4044136400658031386
+    second: mockup_bullet_14
+  - first:
+      213: -4392802544153930176
+    second: mockup_bullet_15
+  - first:
+      213: -5526806058990868392
+    second: mockup_bullet_16
+  - first:
+      213: -8041217364889734709
+    second: mockup_bullet_17
+  - first:
+      213: -7655041800803865255
+    second: mockup_bullet_18
+  - first:
+      213: 3947953267779558965
+    second: mockup_bullet_19
+  - first:
+      213: -6118389597015874526
+    second: mockup_bullet_20
+  - first:
+      213: -3393851809020680070
+    second: mockup_bullet_21
+  - first:
+      213: 1886734109780954242
+    second: mockup_bullet_22
+  - first:
+      213: 4558655544951383778
+    second: mockup_bullet_23
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 1
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: mockup_bullet_0
+      rect:
+        serializedVersion: 2
+        x: 6
+        y: 155
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4c68deb403a5779e0800000000000000
+      internalID: -1623729977164986684
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_1
+      rect:
+        serializedVersion: 2
+        x: 80
+        y: 155
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2722e841289624210800000000000000
+      internalID: 1315730048557130354
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_2
+      rect:
+        serializedVersion: 2
+        x: 154
+        y: 155
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: fcb2779297ad74f40800000000000000
+      internalID: 5712774866264337359
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_3
+      rect:
+        serializedVersion: 2
+        x: 228
+        y: 155
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 246cd513203ab7710800000000000000
+      internalID: 1692125314821244482
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_4
+      rect:
+        serializedVersion: 2
+        x: 302
+        y: 155
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1668cf542ee935870800000000000000
+      internalID: 8670448402292311649
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_5
+      rect:
+        serializedVersion: 2
+        x: 376
+        y: 155
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a560adbaffcf0a690800000000000000
+      internalID: -7592790796716603814
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_6
+      rect:
+        serializedVersion: 2
+        x: 450
+        y: 155
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 13443292321241250800000000000000
+      internalID: 5914388645542052913
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_7
+      rect:
+        serializedVersion: 2
+        x: 524
+        y: 155
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 447ba3b78371441d0800000000000000
+      internalID: -3367541090013235388
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_8
+      rect:
+        serializedVersion: 2
+        x: 6
+        y: 81
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 215c3559bfde8a760800000000000000
+      internalID: 7469481646791836946
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_9
+      rect:
+        serializedVersion: 2
+        x: 80
+        y: 81
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 651ec1a6680259ad0800000000000000
+      internalID: -2696213040233389738
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_10
+      rect:
+        serializedVersion: 2
+        x: 154
+        y: 81
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a52db5d5df35742f0800000000000000
+      internalID: -988729245526404518
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_11
+      rect:
+        serializedVersion: 2
+        x: 228
+        y: 81
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 74f215eb66d754b90800000000000000
+      internalID: -7258257344204558521
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_12
+      rect:
+        serializedVersion: 2
+        x: 302
+        y: 81
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 448ac90634a355980800000000000000
+      internalID: -8550864256434919356
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_13
+      rect:
+        serializedVersion: 2
+        x: 376
+        y: 81
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a1ff6496d8d456710800000000000000
+      internalID: 1685838905272106778
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_14
+      rect:
+        serializedVersion: 2
+        x: 450
+        y: 81
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6ec1d8fce5750e7c0800000000000000
+      internalID: -4044136400658031386
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_15
+      rect:
+        serializedVersion: 2
+        x: 524
+        y: 81
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 046d5433c51a903c0800000000000000
+      internalID: -4392802544153930176
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_16
+      rect:
+        serializedVersion: 2
+        x: 6
+        y: 7
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8586f5feb27dc43b0800000000000000
+      internalID: -5526806058990868392
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_17
+      rect:
+        serializedVersion: 2
+        x: 80
+        y: 7
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bc17b0c296bd76090800000000000000
+      internalID: -8041217364889734709
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_18
+      rect:
+        serializedVersion: 2
+        x: 154
+        y: 7
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 95da1525a04d3c590800000000000000
+      internalID: -7655041800803865255
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_19
+      rect:
+        serializedVersion: 2
+        x: 228
+        y: 7
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 53ed7d37492f9c630800000000000000
+      internalID: 3947953267779558965
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_20
+      rect:
+        serializedVersion: 2
+        x: 302
+        y: 7
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2246c60041d171ba0800000000000000
+      internalID: -6118389597015874526
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_21
+      rect:
+        serializedVersion: 2
+        x: 376
+        y: 7
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a786107d2cd96e0d0800000000000000
+      internalID: -3393851809020680070
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_22
+      rect:
+        serializedVersion: 2
+        x: 450
+        y: 7
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 28c4b1f2da60f2a10800000000000000
+      internalID: 1886734109780954242
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: mockup_bullet_23
+      rect:
+        serializedVersion: 2
+        x: 524
+        y: 7
+        width: 62
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2e6213ab019934f30800000000000000
+      internalID: 4558655544951383778
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      mockup_bullet_0: -1623729977164986684
+      mockup_bullet_1: 1315730048557130354
+      mockup_bullet_10: -988729245526404518
+      mockup_bullet_11: -7258257344204558521
+      mockup_bullet_12: -8550864256434919356
+      mockup_bullet_13: 1685838905272106778
+      mockup_bullet_14: -4044136400658031386
+      mockup_bullet_15: -4392802544153930176
+      mockup_bullet_16: -5526806058990868392
+      mockup_bullet_17: -8041217364889734709
+      mockup_bullet_18: -7655041800803865255
+      mockup_bullet_19: 3947953267779558965
+      mockup_bullet_2: 5712774866264337359
+      mockup_bullet_20: -6118389597015874526
+      mockup_bullet_21: -3393851809020680070
+      mockup_bullet_22: 1886734109780954242
+      mockup_bullet_23: 4558655544951383778
+      mockup_bullet_3: 1692125314821244482
+      mockup_bullet_4: 8670448402292311649
+      mockup_bullet_5: -7592790796716603814
+      mockup_bullet_6: 5914388645542052913
+      mockup_bullet_7: -3367541090013235388
+      mockup_bullet_8: 7469481646791836946
+      mockup_bullet_9: -2696213040233389738
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
