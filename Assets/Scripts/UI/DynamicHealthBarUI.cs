@@ -46,7 +46,7 @@ namespace LetsDash.UI
 
             if (hpValueText != null)
             {
-                hpValueText.text = $"{Mathf.CeilToInt(currentHP)} / {Mathf.CeilToInt(maxHP)}";
+                hpValueText.text = $"{Mathf.CeilToInt(currentHP)}";
             }
         }
     }

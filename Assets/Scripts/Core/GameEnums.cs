@@ -13,6 +13,15 @@ namespace LetsDash.Core
         Victory
     }
 
+    public enum BulletPathType
+    {
+        LinearRay = 0,
+        HeartCardioidBurst = 1,
+        CurvedArc = 2,
+        ArchimedeanSpiral = 3,
+        Space = 4
+    }
+
     public enum PathPatternType
     {
         LinearRay = 0,

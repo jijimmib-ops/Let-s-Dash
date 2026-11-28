@@ -12,6 +12,7 @@ using LetsDash.Entities;
 using LetsDash.Items;
 using LetsDash.UI;
 using LetsDash.Audio;
+using LetsDash.VFX;
 
 namespace LetsDash.Editor
 {
@@ -49,6 +50,7 @@ namespace LetsDash.Editor
             {
                 WirePartner(leftPlayer, rightPlayer);
                 WirePartner(rightPlayer, leftPlayer);
+                CreatePlayerTetherLink(leftPlayer.transform, rightPlayer.transform);
             }
 
             EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
@@ -352,6 +354,27 @@ namespace LetsDash.Editor
                 if (pivotGroup != null)
                 {
                     bossSo.FindProperty("pivotPointsGroup").objectReferenceValue = pivotGroup;
+
+                    SerializedProperty pivotConfigsProp = bossSo.FindProperty("pivotConfigs");
+                    if (pivotConfigsProp != null)
+                    {
+                        int pivotCount = pivotGroup.childCount > 0 ? pivotGroup.childCount : 1;
+                        pivotConfigsProp.arraySize = pivotCount;
+                        for (int i = 0; i < pivotCount; i++)
+                        {
+                            Transform targetPivot = pivotGroup.childCount > 0 ? pivotGroup.GetChild(i) : pivotGroup;
+                            SerializedProperty cfgProp = pivotConfigsProp.GetArrayElementAtIndex(i);
+                            cfgProp.FindPropertyRelative("pivotTransform").objectReferenceValue = targetPivot;
+
+                            SerializedProperty patternsProp = cfgProp.FindPropertyRelative("allowedPatterns");
+                            patternsProp.arraySize = 5;
+                            patternsProp.GetArrayElementAtIndex(0).enumValueIndex = (int)BulletPathType.LinearRay;
+                            patternsProp.GetArrayElementAtIndex(1).enumValueIndex = (int)BulletPathType.HeartCardioidBurst;
+                            patternsProp.GetArrayElementAtIndex(2).enumValueIndex = (int)BulletPathType.CurvedArc;
+                            patternsProp.GetArrayElementAtIndex(3).enumValueIndex = (int)BulletPathType.ArchimedeanSpiral;
+                            patternsProp.GetArrayElementAtIndex(4).enumValueIndex = (int)BulletPathType.Space;
+                        }
+                    }
                 }
 
                 int combinedPlayerMask = (leftLayer >= 0 ? (1 << leftLayer) : 0)
@@ -430,6 +453,54 @@ namespace LetsDash.Editor
             SerializedObject so = new SerializedObject(self);
             so.FindProperty("partnerPlayer").objectReferenceValue = partner;
             so.ApplyModifiedProperties();
+        }
+
+        private static void CreatePlayerTetherLink(Transform playerLeft, Transform playerRight)
+        {
+            if (playerLeft == null || playerRight == null) return;
+
+            GameObject linkObj = GameObject.Find("Player_ParallelLink");
+            if (linkObj == null)
+            {
+                linkObj = new GameObject("Player_ParallelLink");
+            }
+
+            LineRenderer lr = linkObj.GetComponent<LineRenderer>() ?? linkObj.AddComponent<LineRenderer>();
+            LinkEffectRenderer linkEffect = linkObj.GetComponent<LinkEffectRenderer>() ?? linkObj.AddComponent<LinkEffectRenderer>();
+
+            Material spriteDefaultMat = AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat");
+            if (spriteDefaultMat == null)
+            {
+                Shader defaultShader = Shader.Find("Sprites/Default");
+                if (defaultShader != null)
+                {
+                    spriteDefaultMat = new Material(defaultShader);
+                }
+            }
+
+            if (spriteDefaultMat != null)
+            {
+                lr.sharedMaterial = spriteDefaultMat;
+            }
+
+            lr.useWorldSpace = true;
+            lr.sortingLayerName = "Default";
+            lr.sortingOrder = -1;
+            lr.startWidth = 0.08f;
+            lr.endWidth = 0.08f;
+            lr.startColor = new Color(0.38f, 0.65f, 0.98f, 0.75f);
+            lr.endColor = new Color(0.96f, 0.45f, 0.71f, 0.75f);
+
+            SerializedObject linkSo = new SerializedObject(linkEffect);
+            linkSo.FindProperty("pointA").objectReferenceValue = playerLeft;
+            linkSo.FindProperty("pointB").objectReferenceValue = playerRight;
+            linkSo.FindProperty("hideWhenEndpointInactive").boolValue = true;
+            linkSo.FindProperty("sortingLayerName").stringValue = "Default";
+            linkSo.FindProperty("sortingOrder").intValue = -1;
+            linkSo.FindProperty("lineWidth").floatValue = 0.08f;
+            linkSo.ApplyModifiedProperties();
+
+            linkEffect.SetEndpoints(playerLeft, playerRight);
         }
 
         private static void SetupManagers(GameObject bullet1, GameObject bullet2, GameObject bullet3, GameObject cratePrefab)

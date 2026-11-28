@@ -45,7 +45,7 @@ namespace LetsDash.UI
 
             if (livesText != null)
             {
-                livesText.text = $"Lives: {remainingLives}";
+                livesText.text = $"{remainingLives}";
             }
         }
     }

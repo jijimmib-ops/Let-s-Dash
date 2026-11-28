@@ -23,6 +23,7 @@ namespace LetsDash.Core
 
         public GameState CurrentState => currentState;
         public float SurvivalTimeRemaining => survivalTimeRemaining;
+        public float ElapsedPlayTime => Mathf.Max(0f, totalSurvivalDuration - survivalTimeRemaining);
         public float CountdownTimer => countdownTimer;
         public bool IsMuted => isMuted;
         public bool IsPauseLocked => currentState == GameState.Countdown || currentState == GameState.Loading || currentState == GameState.Menu || isEndingGame;
