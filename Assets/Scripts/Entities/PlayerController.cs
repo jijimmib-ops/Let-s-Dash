@@ -9,10 +9,11 @@ using LetsDash.Audio;
 
 namespace LetsDash.Entities
 {
+    [RequireComponent(typeof(Rigidbody2D), typeof(BoxCollider2D), typeof(HitboxRelay))]
     public class PlayerController : MonoBehaviour, IDamageableEntity
     {
         [Header("Identity & Partner")]
-        [SerializeField] private int playerID = 0; // 0 = Left (WASD+C), 1 = Right (Arrows+RightShift)
+        [SerializeField] private int playerID = 0; // 0 = Left (WASD), 1 = Right (Arrows)
         [SerializeField] private PlayerController partnerPlayer;
 
         [Header("Stats & Extra Lives")]
@@ -21,9 +22,6 @@ namespace LetsDash.Entities
         [SerializeField] private int extraLives = 3;
         [SerializeField] private float reviveInvulnerabilityDuration = 3f;
         [SerializeField] private float moveSpeed = 6.5f;
-        [SerializeField] private float dashSpeedMultiplier = 2.6f;
-        [SerializeField] private float dashDuration = 0.16f;
-        [SerializeField] private float dashCooldown = 1.1f;
 
         [Header("Single FirePivot & Weapon Modifiers")]
         [SerializeField] private Transform firePivot;
@@ -34,11 +32,8 @@ namespace LetsDash.Entities
         [SerializeField] private LayerMask bossLayerMask;
         [SerializeField] private WeaponUpgradeFlags activeUpgrades = WeaponUpgradeFlags.None;
 
-        private float dashTimer;
-        private float dashCooldownTimer;
         private float reviveInvulnTimer;
         private float fireTimer;
-        private Vector2 dashDirection;
         private bool isInvulnerable;
         private Rigidbody2D rb;
 
@@ -92,7 +87,7 @@ namespace LetsDash.Entities
                 return;
             }
 
-            HandleMovementAndDash();
+            HandleMovement();
             AutoFireRoutine();
         }
 
@@ -129,45 +124,15 @@ namespace LetsDash.Entities
             return new Vector2(x, y).normalized;
         }
 
-        private bool ReadDashPressed()
-        {
-            bool pressed = playerID == 0 ? Input.GetKeyDown(KeyCode.C) : Input.GetKeyDown(KeyCode.RightShift);
-            if (pressed)
-            {
-                ModuloLcgRandom.FeedInput(playerID == 0 ? 9 : 10);
-            }
-            return pressed;
-        }
-
-        private void HandleMovementAndDash()
+        private void HandleMovement()
         {
             float dt = Time.deltaTime;
-            if (dashCooldownTimer > 0f) dashCooldownTimer -= dt;
             if (reviveInvulnTimer > 0f) reviveInvulnTimer -= dt;
 
             Vector2 input = ReadInputAxis();
+            Vector2 velocity = input * moveSpeed;
 
-            if (ReadDashPressed() && dashCooldownTimer <= 0f && dashTimer <= 0f)
-            {
-                dashDirection = input.sqrMagnitude > 0.01f ? input : Vector2.up;
-                dashTimer = dashDuration;
-                dashCooldownTimer = dashCooldown;
-                AudioAndVFXManager.Instance?.SpawnDashVFX(transform.position);
-                AudioAndVFXManager.Instance?.PlayDashSFX();
-            }
-
-            Vector2 velocity;
-            if (dashTimer > 0f)
-            {
-                dashTimer -= dt;
-                velocity = dashDirection * (moveSpeed * dashSpeedMultiplier);
-            }
-            else
-            {
-                velocity = input * moveSpeed;
-            }
-
-            isInvulnerable = dashTimer > 0f || reviveInvulnTimer > 0f;
+            isInvulnerable = reviveInvulnTimer > 0f;
 
             if (rb != null)
             {
@@ -176,7 +141,7 @@ namespace LetsDash.Entities
             }
             else
             {
-                transform.position = (Vector2)transform.position + velocity * Time.deltaTime;
+                transform.position = (Vector2)transform.position + velocity * dt;
             }
         }
 

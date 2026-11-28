@@ -26,6 +26,7 @@ namespace LetsDash.Bullets
         [Header("Pool Configuration")]
         [SerializeField] private BulletPrefabConfig[] bulletConfigs;
         [SerializeField] private LayerMask wallBlockingMask;
+        [SerializeField] private Collider2D centerDividerCollider;
         [SerializeField] private Transform poolContainer;
 
         private readonly List<BulletData> bulletPool = new List<BulletData>(2700);
@@ -39,6 +40,7 @@ namespace LetsDash.Bullets
                 return;
             }
             Instance = this;
+            Physics2D.queriesHitTriggers = true;
 
             if (poolContainer == null)
             {
@@ -161,9 +163,10 @@ namespace LetsDash.Bullets
             float dt = Time.deltaTime;
             if (dt <= 0f) return;
 
-            // LINQ .Where() iterates active bullets only
-            foreach (BulletData bullet in bulletPool.Where(b => b.isActive))
+            int poolCount = bulletPool.Count;
+            for (int i = 0; i < poolCount; i++)
             {
+                BulletData bullet = bulletPool[i];
                 if (!bullet.isActive) continue;
 
                 bullet.age_t += dt;
@@ -179,25 +182,41 @@ namespace LetsDash.Bullets
                     : new Vector2(Mathf.Cos(bullet.angle_a * Mathf.Deg2Rad), Mathf.Sin(bullet.angle_a * Mathf.Deg2Rad)) * (bullet.speed * bullet.age_t);
 
                 Vector2 nextPos = bullet.originPos + localOffset;
+
+                // Collider-based Wall_CenterDivider check (avoids hardcoded X or height values)
+                if (CrossesCenterDividerCollider(bullet.prevPos, nextPos, bullet.hitRadius))
+                {
+                    ReturnToPool(bullet);
+                    continue;
+                }
+
                 Vector2 delta = nextPos - bullet.prevPos;
                 float distance = delta.magnitude;
 
                 // Player bullets (ID 0 or 1) can intercept active Boss bullets (ID 2)
                 if (bullet.ownerEntityID == 0 || bullet.ownerEntityID == 1)
                 {
-                    BulletData interceptedEnemy = bulletPool.FirstOrDefault(enemy =>
-                        enemy.isActive &&
-                        enemy.ownerEntityID == 2 &&
-                        DistancePointToSegmentSq(enemy.prevPos, bullet.prevPos, nextPos) <=
-                            (bullet.hitRadius + enemy.hitRadius) * (bullet.hitRadius + enemy.hitRadius));
-
-                    if (interceptedEnemy != null)
+                    bool intercepted = false;
+                    for (int j = 0; j < poolCount; j++)
                     {
-                        AudioAndVFXManager.Instance?.SpawnImpactVFX(interceptedEnemy.prevPos);
-                        ReturnToPool(interceptedEnemy);
-                        ReturnToPool(bullet);
-                        continue;
+                        BulletData enemy = bulletPool[j];
+                        if (!enemy.isActive || enemy.ownerEntityID != 2) continue;
+
+                        float combinedRadius = bullet.hitRadius + enemy.hitRadius;
+                        // Fast Y-axis bounding rejection before expensive segment squared distance check
+                        if (Mathf.Abs(enemy.prevPos.y - nextPos.y) > combinedRadius + 1.0f) continue;
+
+                        if (DistancePointToSegmentSq(enemy.prevPos, bullet.prevPos, nextPos) <= combinedRadius * combinedRadius)
+                        {
+                            AudioAndVFXManager.Instance?.SpawnImpactVFX(enemy.prevPos);
+                            ReturnToPool(enemy);
+                            ReturnToPool(bullet);
+                            intercepted = true;
+                            break;
+                        }
                     }
+
+                    if (intercepted) continue;
                 }
 
                 if (distance > 0.0001f)
@@ -229,6 +248,22 @@ namespace LetsDash.Bullets
                 bullet.prevPos = nextPos;
                 bullet.visualObj.transform.position = nextPos;
             }
+        }
+
+        private bool CrossesCenterDividerCollider(Vector2 fromPos, Vector2 toPos, float hitRadius)
+        {
+            if (centerDividerCollider == null || !centerDividerCollider.enabled) return false;
+
+            Bounds b = centerDividerCollider.bounds;
+            float minX = b.min.x - hitRadius;
+            float maxX = b.max.x + hitRadius;
+            float minY = b.min.y - hitRadius;
+            float maxY = b.max.y + hitRadius;
+
+            if (Mathf.Max(fromPos.y, toPos.y) < minY || Mathf.Min(fromPos.y, toPos.y) > maxY) return false;
+            if ((fromPos.x < minX && toPos.x < minX) || (fromPos.x > maxX && toPos.x > maxX)) return false;
+
+            return true;
         }
 
         private static float DistancePointToSegmentSq(Vector2 p, Vector2 a, Vector2 b)

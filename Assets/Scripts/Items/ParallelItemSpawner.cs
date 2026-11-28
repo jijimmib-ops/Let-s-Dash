@@ -25,12 +25,6 @@ namespace LetsDash.Items
         [SerializeField] private Collider2D leftSpawnArea;
         [SerializeField] private Collider2D rightSpawnArea;
 
-        [Header("Fallback Bounds (Used Only If Colliders Are Empty)")]
-        [SerializeField] private Vector2 leftMinBounds = new Vector2(-7.5f, -4f);
-        [SerializeField] private Vector2 leftMaxBounds = new Vector2(-1f, 0.5f);
-        [SerializeField] private Vector2 rightMinBounds = new Vector2(1f, -4f);
-        [SerializeField] private Vector2 rightMaxBounds = new Vector2(7.5f, 0.5f);
-
         private float spawnTimer;
         private bool spawnOnLeftNext = true;
 
@@ -63,21 +57,16 @@ namespace LetsDash.Items
             if (cratePrefab == null) return;
 
             Collider2D targetArea = spawnOnLeftNext ? leftSpawnArea : rightSpawnArea;
-            Vector2 min;
-            Vector2 max;
-
-            if (targetArea != null)
-            {
-                min = targetArea.bounds.min;
-                max = targetArea.bounds.max;
-            }
-            else
-            {
-                min = spawnOnLeftNext ? leftMinBounds : rightMinBounds;
-                max = spawnOnLeftNext ? leftMaxBounds : rightMaxBounds;
-            }
-
             spawnOnLeftNext = !spawnOnLeftNext;
+
+            if (targetArea == null)
+            {
+                Debug.LogWarning("[ParallelItemSpawner] Target spawn area Collider2D is not assigned. Skipping crate spawn.");
+                return;
+            }
+
+            Vector2 min = targetArea.bounds.min;
+            Vector2 max = targetArea.bounds.max;
 
             Vector2 pos = new Vector2(
                 ModuloLcgRandom.NextRange(min.x, max.x),

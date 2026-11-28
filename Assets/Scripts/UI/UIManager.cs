@@ -82,7 +82,7 @@ namespace LetsDash.UI
             if (textCountdown != null)
             {
                 int ceilSeconds = Mathf.CeilToInt(remaining);
-                textCountdown.text = ceilSeconds > 0 ? ceilSeconds.ToString() : "DASH!";
+                textCountdown.text = ceilSeconds > 0 ? ceilSeconds.ToString() : "GO!";
             }
         }
 

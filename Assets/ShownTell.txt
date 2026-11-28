@@ -1,32 +1,31 @@
+
 [Scene: MainGame]
 ├── MANAGERS (can live on separate @Objects or grouped under Managers)
 │   ├── @GameManager            [Comp] GameManager
 │   │                             └─ Wire: countdownText, survivalTimerText, pauseButton, audioToggleButton
-│   ├── @BulletPoolManager      [Comp] BulletPoolManager
-│   │                             └─ Wire: bulletConfigs (Bullet_1, Bullet_2, Bullet_3 prefabs; total 2700 slots), wallBlockingMask = Walls
+│   ├── @BulletPoolManager      [Comp] BulletPoolManager (queriesHitTriggers = true, zero-GC Update loop)
+│   │                             └─ Wire: bulletConfigs (Bullet_1, Bullet_2, Bullet_3; 2700 slots), wallBlockingMask = Walls, centerDividerCollider = Wall_CenterDivider
 │   ├── @PathFormulaLibrary     [Comp] PathFormulaLibrary (12 SortedDictionary Desmos equations)
 │   ├── @ItemSpawnerManager     [Comp] ParallelItemSpawner
-│   │   │                         └─ Wire: cratePrefab, spawnInterval = 15s, leftSpawnArea, rightSpawnArea, 5 upgradeArtConfigs
+│   │   │                         └─ Wire: cratePrefab, spawnInterval = 15s, leftSpawnArea, rightSpawnArea (strict Collider2D bounds), 5 upgradeArtConfigs
 │   │   ├── SpawnArea_Left      [Comp] BoxCollider2D (IsTrigger = true)
 │   │   └── SpawnArea_Right     [Comp] BoxCollider2D (IsTrigger = true)
 │   └── @AudioAndVFXManager     [Comp] AudioAndVFXManager + AudioSource (BGM, Loop) + AudioSource (SFX)
 ├── ENVIRONMENT
 │   ├── Art_Background          [Comp] SpriteRenderer
-│   ├── Wall_CenterDivider      [Layer: Walls] [Comp] BoxCollider2D (IsTrigger = false)
+│   ├── Wall_CenterDivider      [Layer: Walls] [Comp] BoxCollider2D (IsTrigger = false; dynamically spanned from bottomWall.bounds.max.y to topWall.bounds.min.y + margin)
 │   └── Wall_Boundaries         [Layer: Walls] Top, Bottom, Left, Right -> each [Comp] BoxCollider2D (IsTrigger = false)
 ├── ENTITIES
-│   ├── PlayerLeft              [Layer: PlayerBody] [Comp] PlayerController (playerID=0, partner=PlayerRight, extraLives=3, bossLayerMask=Boss)
-│   │   │                         + Rigidbody2D (Dynamic, GravityScale=0, FreezeRotationZ) + BoxCollider2D (IsTrigger=false, blocks walls)
-│   │   ├── ColliderArea / HitBox [Layer: LeftPlayer] [Comp] BoxCollider2D/CircleCollider2D (IsTrigger=true) + HitboxRelay
+│   ├── PlayerLeft              [Layer: LeftPlayer] [Comp] PlayerController (playerID=0, WASD, partner=PlayerRight, extraLives=3, bossLayerMask=Boss)
+│   │   │                         + Rigidbody2D (Dynamic, GravityScale=0, FreezeRotationZ) + single BoxCollider2D (IsTrigger=false) + HitboxRelay
 │   │   ├── FirePivot           (Empty Transform above ship; single 90° pivot for stackable offset/spread)
 │   │   └── Art                 [Comp] SpriteRenderer
-│   ├── PlayerRight             [Layer: PlayerBody] [Comp] PlayerController (playerID=1, partner=PlayerLeft, extraLives=3, bossLayerMask=Boss)
-│   │   │                         + Rigidbody2D (Dynamic, GravityScale=0, FreezeRotationZ) + BoxCollider2D (IsTrigger=false, blocks walls)
-│   │   ├── ColliderArea / HitBox [Layer: RightPlayer] [Comp] BoxCollider2D/CircleCollider2D (IsTrigger=true) + HitboxRelay
+│   ├── PlayerRight             [Layer: RightPlayer] [Comp] PlayerController (playerID=1, Arrows, partner=PlayerLeft, extraLives=3, bossLayerMask=Boss)
+│   │   │                         + Rigidbody2D (Dynamic, GravityScale=0, FreezeRotationZ) + single BoxCollider2D (IsTrigger=false) + HitboxRelay
 │   │   ├── FirePivot           (Empty Transform above ship; single 90° pivot)
 │   │   └── Art                 [Comp] SpriteRenderer
 │   └── Boss_Main               [Comp] BossController (bossID=2, maxHP=45000, leftPlayerMask=LeftPlayer, rightPlayerMask=RightPlayer,
-│       │                         streamScaleIntervalSeconds=45, cached PlayerPrefs modulo run sequence)
+│       │                         streamScaleIntervalSeconds=45, cached PlayerPrefs LCG modulo sequence)
 │       ├── HitBox              [Layer: Boss] [Comp] BoxCollider2D (IsTrigger=true) + HitboxRelay
 │       └── PivotPointGroup     (Empty parent containing 4+ Empty Transforms: Pivot_L1, Pivot_L2, Pivot_R1, Pivot_R2)
 ├── UI_CANVAS
@@ -42,10 +41,10 @@
 │   │   │   └── Btn_Sound_HUD   [Comp] Image, Button -> UIManager.OnClickToggleSound
 │   │   ├── Panel_Menu          [Comp] Image -> Btn_Start (OnClickStart), Btn_Sound_Menu (OnClickToggleSound)
 │   │   ├── Panel_Loading       [Comp] Image -> Loading_Slider (Slider) + Title_Loading (TMP)
-│   │   ├── Text_Countdown      [Comp] TextMeshProUGUI ("5..4..3..2..1", Pause locked)
+│   │   ├── Text_Countdown      [Comp] TextMeshProUGUI ("5..4..3..2..1 -> GO!", Pause locked)
 │   │   ├── Panel_Pause         [Comp] Image -> Btn_Resume, Btn_Restart, Btn_Menu, Btn_Sound_Pause
 │   │   └── Panel_EndGame       [Comp] Image -> Text_EndGameTitle (TMP), Btn_Restart, Btn_Menu
 │   └── EventSystem             [Comp] EventSystem + StandaloneInputModule / InputSystemUIInputModule
 └── PREFABS (Assets/Prefab/)
     ├── Bullet_1 / 2 / 3        [Comp] SpriteRenderer + BoxCollider2D (IsTrigger=true)
-    └── PowerUpCrate            [Comp] SpriteRenderer + BoxCollider2D (IsTrigger=true) + PowerUpCrateห
+    └── PowerUpCrate            [Comp] SpriteRenderer + BoxCollider2D (IsTrigger=true) + PowerUpCrate

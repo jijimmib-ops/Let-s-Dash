@@ -1,6 +1,0 @@
-1. ParallelItemSpawner 
-- Arena Bounds Left Min Bounds Left Max Bounds Right Min Bounds Right Max Bounds ปรับให้เป้น อ้างอิง ใช้  collider area เพื่อเป็นการอ้างอิงต่ำแหน่ง เราใส่เอง ไม่ต้องมี เข้าใจถูกเกี่ยวกับส่วนนี้ไหม หรือเป็นต่ำแหน่งการ  spawn สร้าง power?
-- Crate prefab ใช้อันเดียว แล้วให้สุ่มจากที่มี?
-2. Player Controller อะไร คือ  Arena Bounds อะไร
-3. คำถาม Hp bar จะใช้ Hierarchy canva แบบไหน scrollingbar?
-4. ปรับให้ ระบบ Player  ระบบชีวิต พิเศษ 3 แต้ม คือ ถ้า Hp  หมด ยังหรือ Hp ช่วยชีวิต ทำให้ Hp  เต็ม และเป็นอมตะช่วยคร่าว 3 วินาที

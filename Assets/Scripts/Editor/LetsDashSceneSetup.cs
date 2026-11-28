@@ -24,8 +24,7 @@ namespace LetsDash.Editor
             "Walls",
             "LeftPlayer",
             "RightPlayer",
-            "Boss",
-            "PlayerBody"
+            "Boss"
         };
 
         [MenuItem("Tools/Let's Dash/Auto Setup MainGame Scene")]
@@ -41,9 +40,9 @@ namespace LetsDash.Editor
             GameObject bullet3 = EnsureBulletPrefab("Assets/Prefab/Generated/Bullet_3.prefab", circleSprite, 0.54f, new Color(0.98f, 0.52f, 0.15f));
             GameObject cratePrefab = EnsureCratePrefab("Assets/Prefab/Generated/PowerUpCrate.prefab", squareSprite);
 
-            SetupWallsAndDivider();
+            Collider2D centerDividerCollider = SetupWallsAndDivider();
             SetupEntities(out PlayerController leftPlayer, out PlayerController rightPlayer, out BossController boss);
-            SetupManagers(bullet1, bullet2, bullet3, cratePrefab);
+            SetupManagers(bullet1, bullet2, bullet3, cratePrefab, centerDividerCollider);
             SetupCanvasUI(squareSprite);
 
             if (leftPlayer != null && rightPlayer != null)
@@ -82,23 +81,25 @@ namespace LetsDash.Editor
             int leftPlayer = LayerMask.NameToLayer("LeftPlayer");
             int rightPlayer = LayerMask.NameToLayer("RightPlayer");
             int boss = LayerMask.NameToLayer("Boss");
-            int playerBody = LayerMask.NameToLayer("PlayerBody");
 
-            if (playerBody >= 0 && walls >= 0)
-            {
-                for (int i = 0; i < 32; i++)
-                {
-                    Physics2D.IgnoreLayerCollision(playerBody, i, i != walls);
-                }
-            }
             if (leftPlayer >= 0 && rightPlayer >= 0)
             {
                 Physics2D.IgnoreLayerCollision(leftPlayer, rightPlayer, true);
             }
-            if (boss >= 0 && walls >= 0)
+            if (walls >= 0)
             {
-                Physics2D.IgnoreLayerCollision(boss, walls, true);
+                if (leftPlayer >= 0) Physics2D.IgnoreLayerCollision(leftPlayer, walls, false);
+                if (rightPlayer >= 0) Physics2D.IgnoreLayerCollision(rightPlayer, walls, false);
+                if (boss >= 0) Physics2D.IgnoreLayerCollision(boss, walls, true);
             }
+            if (boss >= 0)
+            {
+                if (leftPlayer >= 0) Physics2D.IgnoreLayerCollision(leftPlayer, boss, true);
+                if (rightPlayer >= 0) Physics2D.IgnoreLayerCollision(rightPlayer, boss, true);
+            }
+            // Allow PowerUpCrate (Default layer 0, isTrigger=true) to trigger OnTriggerEnter2D with players
+            if (leftPlayer >= 0) Physics2D.IgnoreLayerCollision(leftPlayer, 0, false);
+            if (rightPlayer >= 0) Physics2D.IgnoreLayerCollision(rightPlayer, 0, false);
         }
 
         private static Sprite EnsureSolidSpriteAsset(string assetPath, bool circle)
@@ -193,30 +194,90 @@ namespace LetsDash.Editor
             return prefab;
         }
 
-        private static void SetupWallsAndDivider()
+        private static Collider2D SetupWallsAndDivider()
         {
             int wallsLayer = LayerMask.NameToLayer("Walls");
-            GameObject entitiesGroup = GameObject.Find("Entitles") ?? GameObject.Find("Entities");
-            if (entitiesGroup == null)
+            GameObject entitiesGroup = GameObject.Find("Entitles") ?? GameObject.Find("Entities") ?? new GameObject("Entities");
+
+            BoxCollider2D topWall = null;
+            BoxCollider2D bottomWall = null;
+
+            // 1. Read Top & Bottom boundary BoxCollider2Ds inside Wall_Boundaries
+            GameObject boundariesGroup = GameObject.Find("Wall_Boundaries");
+            if (boundariesGroup != null)
             {
-                entitiesGroup = new GameObject("Entities");
+                foreach (BoxCollider2D wallCol in boundariesGroup.GetComponentsInChildren<BoxCollider2D>(true))
+                {
+                    if (wallsLayer >= 0) wallCol.gameObject.layer = wallsLayer;
+                    wallCol.isTrigger = false;
+
+                    string lower = wallCol.gameObject.name.ToLowerInvariant();
+                    if (lower.Contains("top") || (topWall == null && wallCol.bounds.center.y > 0f && wallCol.bounds.size.x > wallCol.bounds.size.y))
+                    {
+                        if (topWall == null || wallCol.bounds.center.y > topWall.bounds.center.y) topWall = wallCol;
+                    }
+                    if (lower.Contains("bottom") || (bottomWall == null && wallCol.bounds.center.y < 0f && wallCol.bounds.size.x > wallCol.bounds.size.y))
+                    {
+                        if (bottomWall == null || wallCol.bounds.center.y < bottomWall.bounds.center.y) bottomWall = wallCol;
+                    }
+                }
             }
 
-            foreach (BoxCollider2D col in entitiesGroup.GetComponentsInChildren<BoxCollider2D>(true))
+            // 2. Ensure any other wall/boundary/divider objects also sit on Walls layer (never touch HitBox triggers)
+            foreach (Collider2D col in Object.FindObjectsByType<Collider2D>(FindObjectsSortMode.None))
             {
+                string lowerName = col.gameObject.name.ToLowerInvariant();
+                bool isWallObj = lowerName.Contains("wall") || lowerName.Contains("divider") || lowerName.Contains("boundary");
+                if (!isWallObj) continue;
+
                 if (wallsLayer >= 0) col.gameObject.layer = wallsLayer;
                 col.isTrigger = false;
+
+                if (col is BoxCollider2D box && !lowerName.Contains("center"))
+                {
+                    if (lowerName.Contains("top") && (topWall == null || box.bounds.center.y > topWall.bounds.center.y)) topWall = box;
+                    if (lowerName.Contains("bottom") && (bottomWall == null || box.bounds.center.y < bottomWall.bounds.center.y)) bottomWall = box;
+                }
             }
 
-            if (GameObject.Find("Wall_CenterDivider") == null)
+            GameObject dividerObj = GameObject.Find("Wall_CenterDivider");
+            if (dividerObj == null)
             {
-                GameObject divider = new GameObject("Wall_CenterDivider");
-                divider.transform.SetParent(entitiesGroup.transform);
-                divider.transform.position = Vector3.zero;
-                if (wallsLayer >= 0) divider.layer = wallsLayer;
-                BoxCollider2D col = divider.AddComponent<BoxCollider2D>();
-                col.size = new Vector2(0.25f, 12f);
+                dividerObj = new GameObject("Wall_CenterDivider");
+                dividerObj.transform.SetParent(entitiesGroup.transform);
+                dividerObj.transform.position = Vector3.zero;
             }
+            if (wallsLayer >= 0) dividerObj.layer = wallsLayer;
+
+            BoxCollider2D dividerCol = dividerObj.GetComponent<BoxCollider2D>() ?? dividerObj.AddComponent<BoxCollider2D>();
+            dividerCol.isTrigger = false;
+
+            // Dynamically span from bottomWall.bounds.max.y to topWall.bounds.min.y plus overlap margin
+            const float overlapMargin = 0.5f;
+            float dividerPosY;
+            float dividerHeight;
+
+            if (topWall != null && bottomWall != null && topWall.bounds.min.y > bottomWall.bounds.max.y)
+            {
+                float minY = bottomWall.bounds.max.y;
+                float maxY = topWall.bounds.min.y;
+                dividerPosY = (minY + maxY) * 0.5f;
+                dividerHeight = (maxY - minY) + overlapMargin * 2f;
+            }
+            else
+            {
+                dividerPosY = dividerObj.transform.position.y;
+                dividerHeight = 30f;
+            }
+
+            Vector3 pos = dividerObj.transform.position;
+            dividerObj.transform.position = new Vector3(pos.x, dividerPosY, pos.z);
+            dividerCol.offset = new Vector2(dividerCol.offset.x, 0f);
+            float scaleY = Mathf.Abs(dividerObj.transform.lossyScale.y) > 0.001f ? Mathf.Abs(dividerObj.transform.lossyScale.y) : 1f;
+            float width = dividerCol.size.x > 0.05f ? dividerCol.size.x : 0.25f;
+            dividerCol.size = new Vector2(width, dividerHeight / scaleY);
+
+            return dividerCol;
         }
 
         private static void SetupEntities(out PlayerController leftPlayer, out PlayerController rightPlayer, out BossController boss)
@@ -224,10 +285,9 @@ namespace LetsDash.Editor
             int leftLayer = LayerMask.NameToLayer("LeftPlayer");
             int rightLayer = LayerMask.NameToLayer("RightPlayer");
             int bossLayer = LayerMask.NameToLayer("Boss");
-            int bodyLayer = LayerMask.NameToLayer("PlayerBody");
 
-            leftPlayer = FindOrAssignPlayer("PlayerLeft", 0, leftLayer, bodyLayer, bossLayer);
-            rightPlayer = FindOrAssignPlayer("PlayerRight", 1, rightLayer, bodyLayer, bossLayer);
+            leftPlayer = FindOrAssignPlayer("PlayerLeft", 0, leftLayer, bossLayer);
+            rightPlayer = FindOrAssignPlayer("PlayerRight", 1, rightLayer, bossLayer);
 
             boss = Object.FindFirstObjectByType<BossController>();
             if (boss != null)
@@ -251,10 +311,23 @@ namespace LetsDash.Editor
             }
         }
 
-        private static PlayerController FindOrAssignPlayer(string objName, int playerID, int hitboxLayer, int bodyLayer, int bossLayer)
+        private static PlayerController FindOrAssignPlayer(string objName, int playerID, int playerLayer, int bossLayer)
         {
             GameObject playerObj = GameObject.Find(objName);
             if (playerObj == null) return null;
+
+            // Assign LeftPlayer / RightPlayer directly to parent GameObject
+            if (playerLayer >= 0) playerObj.layer = playerLayer;
+
+            // Remove legacy child ColliderArea / HitBox objects (single collider now lives on parent)
+            foreach (string legacyChildName in new[] { "ColliderArea", "HitBox", "Hitbox" })
+            {
+                Transform legacyChild = playerObj.transform.Find(legacyChildName);
+                if (legacyChild != null)
+                {
+                    Object.DestroyImmediate(legacyChild.gameObject);
+                }
+            }
 
             PlayerController pc = playerObj.GetComponent<PlayerController>() ?? playerObj.AddComponent<PlayerController>();
 
@@ -264,19 +337,18 @@ namespace LetsDash.Editor
             rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
             rb.constraints = RigidbodyConstraints2D.FreezeRotation;
 
-            if (playerObj.GetComponent<BoxCollider2D>() == null)
+            // Single BoxCollider2D (isTrigger = false) on parent handles walls, bullet CircleCast, and crate triggers
+            BoxCollider2D singleCollider = playerObj.GetComponent<BoxCollider2D>() ?? playerObj.AddComponent<BoxCollider2D>();
+            singleCollider.isTrigger = false;
+            if (singleCollider.size.sqrMagnitude < 0.01f)
             {
-                BoxCollider2D wallCol = playerObj.AddComponent<BoxCollider2D>();
-                wallCol.isTrigger = false;
-                wallCol.size = new Vector2(0.7f, 0.7f);
+                singleCollider.size = new Vector2(0.7f, 0.7f);
             }
-            if (bodyLayer >= 0) playerObj.layer = bodyLayer;
 
-            Transform hitboxTf = playerObj.transform.Find("ColliderArea") ?? playerObj.transform.Find("Hitbox") ?? playerObj.transform.Find("HitBox");
-            if (hitboxTf != null)
+            // Attach HitboxRelay directly on parent PlayerLeft / PlayerRight
+            if (playerObj.GetComponent<HitboxRelay>() == null)
             {
-                if (hitboxLayer >= 0) hitboxTf.gameObject.layer = hitboxLayer;
-                if (hitboxTf.GetComponent<HitboxRelay>() == null) hitboxTf.gameObject.AddComponent<HitboxRelay>();
+                playerObj.AddComponent<HitboxRelay>();
             }
 
             Transform firePivotTf = playerObj.transform.Find("FirePivot");
@@ -300,7 +372,7 @@ namespace LetsDash.Editor
             so.ApplyModifiedProperties();
         }
 
-        private static void SetupManagers(GameObject bullet1, GameObject bullet2, GameObject bullet3, GameObject cratePrefab)
+        private static void SetupManagers(GameObject bullet1, GameObject bullet2, GameObject bullet3, GameObject cratePrefab, Collider2D centerDividerCollider)
         {
             GameObject managers = GameObject.Find("Managers") ?? GameObject.Find("@GameManager") ?? new GameObject("Managers");
 
@@ -318,6 +390,10 @@ namespace LetsDash.Editor
 
             int wallsLayer = LayerMask.NameToLayer("Walls");
             if (wallsLayer >= 0) poolSo.FindProperty("wallBlockingMask").intValue = 1 << wallsLayer;
+            if (centerDividerCollider != null)
+            {
+                poolSo.FindProperty("centerDividerCollider").objectReferenceValue = centerDividerCollider;
+            }
             poolSo.ApplyModifiedProperties();
 
             ParallelItemSpawner spawner = managers.GetComponent<ParallelItemSpawner>() ?? managers.AddComponent<ParallelItemSpawner>();

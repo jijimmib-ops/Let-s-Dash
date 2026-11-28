@@ -15,13 +15,11 @@ namespace LetsDash.Audio
         [SerializeField] private AudioClip bgmClip;
         [SerializeField] private AudioClip playerFireClip;
         [SerializeField] private AudioClip bossFireClip;
-        [SerializeField] private AudioClip dashClip;
         [SerializeField] private AudioClip hitClip;
         [SerializeField] private AudioClip pickupClip;
 
         [Header("Pooled VFX Prefabs")]
         [SerializeField] private GameObject impactVfxPrefab;
-        [SerializeField] private GameObject dashVfxPrefab;
         [SerializeField] private GameObject pickupVfxPrefab;
         [SerializeField] private GameObject explosionVfxPrefab;
         [SerializeField] private int vfxPoolSizePerType = 16;
@@ -41,7 +39,6 @@ namespace LetsDash.Audio
         public void PrewarmVFXPools()
         {
             PrewarmPrefab(impactVfxPrefab);
-            PrewarmPrefab(dashVfxPrefab);
             PrewarmPrefab(pickupVfxPrefab);
             PrewarmPrefab(explosionVfxPrefab);
         }
@@ -83,7 +80,6 @@ namespace LetsDash.Audio
 
         public void PlayPlayerFireSFX() => PlayOneShot(playerFireClip, 0.25f);
         public void PlayBossFireSFX() => PlayOneShot(bossFireClip, 0.35f);
-        public void PlayDashSFX() => PlayOneShot(dashClip, 0.65f);
         public void PlayHitSFX() => PlayOneShot(hitClip, 0.7f);
         public void PlayPickupSFX() => PlayOneShot(pickupClip, 0.8f);
 
@@ -96,7 +92,6 @@ namespace LetsDash.Audio
         }
 
         public void SpawnImpactVFX(Vector2 pos) => SpawnVFX(impactVfxPrefab, pos, 0.35f);
-        public void SpawnDashVFX(Vector2 pos) => SpawnVFX(dashVfxPrefab, pos, 0.35f);
         public void SpawnPickupVFX(Vector2 pos) => SpawnVFX(pickupVfxPrefab, pos, 0.55f);
         public void SpawnExplosionVFX(Vector2 pos) => SpawnVFX(explosionVfxPrefab, pos, 0.9f);
 
